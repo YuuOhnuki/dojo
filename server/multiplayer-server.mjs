@@ -11,7 +11,16 @@ const questionsData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
 
 const rooms = new Map();
 
-const server = http.createServer();
+const server = http.createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, service: 'dojo-multiplayer-socket' }));
+    return;
+  }
+
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ ok: false }));
+});
 const io = new Server(server, {
   cors: {
     origin: CLIENT_ORIGIN,
@@ -20,8 +29,7 @@ const io = new Server(server, {
 });
 
 function makeRoomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return String(Math.floor(Math.random() * 1000)).padStart(3, '0');
 }
 
 function generateUniqueRoomCode() {
@@ -43,6 +51,16 @@ function pickQuestion(difficulty) {
     };
   }
   return list[Math.floor(Math.random() * list.length)];
+}
+
+function resetPlayerStatus(player) {
+  player.currentCharIndex = 0;
+  player.correctCount = 0;
+  player.errorCount = 0;
+  player.totalInputCount = 0;
+  player.isCompleted = false;
+  player.elapsedTime = 0;
+  player.finishedAt = null;
 }
 
 function toPublicPlayer(player) {
@@ -134,9 +152,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('room:join', ({ roomCode, playerName }, ack) => {
-    const normalizedCode = String(roomCode ?? '')
-      .trim()
-      .toUpperCase();
+    const normalizedCode = String(roomCode ?? '').replace(/\D/g, '').slice(0, 3);
     const room = rooms.get(normalizedCode);
     if (!room) {
       ack?.({ ok: false, message: 'ルームが見つかりません。' });
@@ -193,6 +209,47 @@ io.on('connection', (socket) => {
       startedAt: room.startedAt,
     });
     ack?.({ ok: true });
+  });
+
+  socket.on('room:update-settings', ({ roomCode, difficulty, minutes }, ack) => {
+    const room = rooms.get(roomCode);
+    if (!room) {
+      ack?.({ ok: false, message: 'ルームが見つかりません。' });
+      return;
+    }
+    if (room.hostPlayerId !== socket.id) {
+      ack?.({ ok: false, message: 'ホストのみ変更できます。' });
+      return;
+    }
+    if (room.status !== 'waiting') {
+      ack?.({ ok: false, message: '待機中のみ設定変更できます。' });
+      return;
+    }
+
+    room.difficulty = difficulty ?? room.difficulty;
+    room.minutes = minutes ?? room.minutes;
+    room.question = pickQuestion(room.difficulty);
+    emitRoomState(roomCode);
+    ack?.({ ok: true, question: room.question });
+  });
+
+  socket.on('room:reopen', ({ roomCode }, ack) => {
+    const room = rooms.get(roomCode);
+    if (!room) {
+      ack?.({ ok: false, message: 'ルームが見つかりません。' });
+      return;
+    }
+    if (room.hostPlayerId !== socket.id) {
+      ack?.({ ok: false, message: 'ホストのみ操作できます。' });
+      return;
+    }
+
+    room.status = 'waiting';
+    room.startedAt = null;
+    room.question = pickQuestion(room.difficulty);
+    room.players.forEach((player) => resetPlayerStatus(player));
+    emitRoomState(roomCode);
+    ack?.({ ok: true, question: room.question });
   });
 
   socket.on('game:progress', ({ roomCode, progress }) => {

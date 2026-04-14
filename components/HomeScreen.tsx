@@ -7,12 +7,19 @@ import { Difficulty } from '@/types/typing';
 interface HomeScreenProps {
     onSelectSinglePlay: (difficulty: Difficulty, minutes: number) => void;
     onSelectMultiPlay: () => void;
+    multiplayerOnline: boolean;
+    appVersion: string;
 }
 
 /**
  * ホーム画面 / メニュー
  */
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSelectMultiPlay }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({
+    onSelectSinglePlay,
+    onSelectMultiPlay,
+    multiplayerOnline,
+    appVersion,
+}) => {
     const [showDifficultySelect, setShowDifficultySelect] = React.useState(false);
     const [selectedMinutes, setSelectedMinutes] = React.useState<number>(1);
 
@@ -52,7 +59,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSe
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        <div className="text-center text-sm tracking-wide text-gray-500">難易度を選択</div>
+                        <div className="text-center text-sm tracking-wide text-gray-500">難易度・時間を選択</div>
                         <div className="space-y-2">
                             <div className="rounded-xl border border-gray-200 px-4 py-3 bg-gray-50">
                                 <input
@@ -96,8 +103,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSe
             </div>
 
             {/* フッター */}
-            <div className="absolute bottom-6 text-center text-gray-400 text-xs">
-                <p>&copy; Yuu</p>
+            <div className="absolute bottom-6 right-6 text-right text-gray-400 text-xs space-y-1">
+                <p className="flex items-center justify-end gap-2">
+                    <span
+                        className={`inline-block h-2 w-2 rounded-full ${multiplayerOnline ? 'bg-emerald-500' : 'bg-red-500'}`}
+                    />
+                    <span>マルチサーバー: {multiplayerOnline ? 'オンライン' : 'オフライン'}</span>
+                </p>
+                <p>v{appVersion}</p>
             </div>
         </div>
     );

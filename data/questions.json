@@ -630,15 +630,15 @@
                 "id": "hard-022",
                 "difficulty": "hard",
                 "japanese": "科学的根拠に基づいた議論を行う",
-                "romaji": "kagakutekikonkyunimotozuitagironwookonau",
-                "alternatives": ["kagakutekikonkyunimotozuitagironwookonau"]
+                "romaji": "kagakutekikonkyonimotozuitagironwookonau",
+                "alternatives": ["kagakutekikonkyonimotozuitagironwookonau"]
             },
             {
                 "id": "hard-023",
                 "difficulty": "hard",
                 "japanese": "専門知識を活用して課題を解決する",
-                "romaji": "senmonchishikiwokatsuyoushitekadaiwokaketsusuru",
-                "alternatives": ["sennmontisikiwokatsuyousitekadaiwokaketsusuru"]
+                "romaji": "senmonchishikiwokatsuyoushitekadaiwokaiketsusuru",
+                "alternatives": ["sennmontisikiwokatsuyousitekadaiwokaiketsusuru"]
             },
             {
                 "id": "hard-024",
@@ -721,8 +721,8 @@
                 "id": "hard-035",
                 "difficulty": "hard",
                 "japanese": "問題の本質を見極めて適切な処置を行う",
-                "romaji": "mondainohonshitsuwomikiyametetekisetsunashochiwookonau",
-                "alternatives": ["monndainohonsituwomikiyametetekisetsunasyotiwookonau"]
+                "romaji": "mondainohonshitsuwomikiwametetekisetsunashochiwookonau",
+                "alternatives": ["monndainohonsituwomikiwametetekisetsunasyotiwookonau"]
             }
         ]
     }
