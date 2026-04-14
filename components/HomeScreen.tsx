@@ -7,20 +7,51 @@ import { Difficulty } from '@/types/typing';
 interface HomeScreenProps {
     onSelectSinglePlay: (difficulty: Difficulty, minutes: number) => void;
     onSelectMultiPlay: () => void;
+    appVersion: string;
 }
 
 /**
  * ホーム画面 / メニュー
  */
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSelectMultiPlay }) => {
+const MULTIPLAYER_SERVER_URL = process.env.NEXT_PUBLIC_MULTIPLAYER_URL ?? 'http://localhost:4001';
+
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSelectMultiPlay, appVersion }) => {
     const [showDifficultySelect, setShowDifficultySelect] = React.useState(false);
     const [selectedMinutes, setSelectedMinutes] = React.useState<number>(1);
+    const [isServerOnline, setIsServerOnline] = React.useState<boolean | null>(null);
 
     const difficultyOptions: { key: Difficulty; label: string; description: string }[] = [
         { key: 'easy', label: '初級', description: '単語中心' },
         { key: 'medium', label: '中級', description: '文をテンポ良く' },
         { key: 'hard', label: '上級', description: '長文チャレンジ' },
     ];
+
+    React.useEffect(() => {
+        let isUnmounted = false;
+
+        const checkServerHealth = async () => {
+            try {
+                const response = await fetch(`${MULTIPLAYER_SERVER_URL}/health`, { cache: 'no-store' });
+                if (!isUnmounted) {
+                    setIsServerOnline(response.ok);
+                }
+            } catch {
+                if (!isUnmounted) {
+                    setIsServerOnline(false);
+                }
+            }
+        };
+
+        void checkServerHealth();
+        const intervalId = window.setInterval(() => {
+            void checkServerHealth();
+        }, 15000);
+
+        return () => {
+            isUnmounted = true;
+            window.clearInterval(intervalId);
+        };
+    }, []);
 
     return (
         <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4">
@@ -96,8 +127,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSe
             </div>
 
             {/* フッター */}
-            <div className="absolute bottom-6 text-center text-gray-400 text-xs">
+            <div className="absolute bottom-6 text-center text-gray-400 text-lg">
                 <p>&copy; Yuu</p>
+            </div>
+
+            <div className="absolute bottom-6 right-6 text-right text-lg text-gray-600">
+                <div className="flex items-center gap-2">
+                    <span className="font-medium">マルチサーバー:</span>
+                    <span className={isServerOnline ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'}>
+                        {isServerOnline === null ? '確認中' : isServerOnline ? 'オンライン' : 'オフライン'}
+                    </span>
+                </div>
+                <div className="mt-1">v{appVersion}</div>
             </div>
         </div>
     );

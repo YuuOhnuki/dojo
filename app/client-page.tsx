@@ -10,7 +10,11 @@ import { Difficulty } from '@/types/typing';
 /**
  * ページルーティング管理（クライアント側）
  */
-export const ClientPage: React.FC = () => {
+interface ClientPageProps {
+    appVersion: string;
+}
+
+export const ClientPage: React.FC<ClientPageProps> = ({ appVersion }) => {
     const { currentScreen, setScreen, setDifficulty, setGameDurationMinutes } = useGameStore();
 
     const handleSelectSinglePlay = (difficulty: Difficulty, minutes: number) => {
@@ -30,7 +34,11 @@ export const ClientPage: React.FC = () => {
     return (
         <main className="min-h-screen bg-white">
             {currentScreen === 'home' && (
-                <HomeScreen onSelectSinglePlay={handleSelectSinglePlay} onSelectMultiPlay={handleSelectMultiPlay} />
+                <HomeScreen
+                    onSelectSinglePlay={handleSelectSinglePlay}
+                    onSelectMultiPlay={handleSelectMultiPlay}
+                    appVersion={appVersion}
+                />
             )}
 
             {currentScreen === 'single' && <SinglePlayScreen onBackToHome={handleBackToHome} />}
