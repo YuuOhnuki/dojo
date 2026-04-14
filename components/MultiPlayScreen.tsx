@@ -536,7 +536,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             </div>
                         </div>
                         {isHost ? (
-                            <Button onClick={updateLobbySettings} variant="outline" className="rounded-xl">
+                            <Button onClick={updateLobbySettings} variant="outline" className="w-full rounded-xl">
                                 設定を反映
                             </Button>
                         ) : (
@@ -544,7 +544,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                         )}
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                         {isHost && (
                             <Button onClick={startRace} className="rounded-xl bg-gray-900 hover:bg-gray-800 text-white">
                                 レース開始
