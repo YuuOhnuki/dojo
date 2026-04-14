@@ -5,10 +5,43 @@ import { Server } from 'socket.io';
 
 const PORT = Number(process.env.PORT ?? process.env.MULTIPLAYER_PORT ?? 4001);
 const CLIENT_ORIGIN = process.env.NEXT_PUBLIC_APP_ORIGIN ?? 'http://localhost:3000';
+const MAX_PLAYERS_PER_ROOM = 8;
+const MINUTES_MIN = 1;
+const MINUTES_MAX = 5;
+const ALLOWED_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 
 const dataPath = path.join(process.cwd(), 'data', 'questions.json');
 const questionsData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
 
+/**
+ * @typedef {{
+ *   playerId: string;
+ *   socketId: string;
+ *   name: string;
+ *   currentCharIndex: number;
+ *   correctCount: number;
+ *   errorCount: number;
+ *   totalInputCount: number;
+ *   isCompleted: boolean;
+ *   elapsedTime: number;
+ *   finishedAt: number | null;
+ * }} Player
+ */
+
+/**
+ * @typedef {{
+ *   code: string;
+ *   hostPlayerId: string;
+ *   difficulty: 'easy' | 'medium' | 'hard';
+ *   minutes: number;
+ *   status: 'waiting' | 'playing' | 'finished';
+ *   question: { id: string; difficulty: string; japanese: string; romaji: string; alternatives?: string[] };
+ *   startedAt: number | null;
+ *   players: Map<string, Player>;
+ * }} Room
+ */
+
+/** @type {Map<string, Room>} */
 const rooms = new Map();
 
 const server = http.createServer((req, res) => {
@@ -30,6 +63,62 @@ const io = new Server(server, {
 
 function makeRoomCode() {
   return String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+}
+
+/**
+ * プレイヤー名をサニタイズして、UI崩れや制御文字混入を防ぐ。
+ * @param {unknown} value
+ * @param {string} fallback
+ * @returns {string}
+ */
+function sanitizePlayerName(value, fallback) {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().replace(/[\x00-\x1F\x7F]/g, '').slice(0, 16);
+  return normalized || fallback;
+}
+
+/**
+ * ルームコードを 3 桁数字に正規化する。
+ * @param {unknown} value
+ * @returns {string}
+ */
+function normalizeRoomCode(value) {
+  return String(value ?? '').replace(/\D/g, '').slice(0, 3);
+}
+
+/**
+ * 難易度をホワイトリストで検証する。
+ * @param {unknown} value
+ * @returns {'easy' | 'medium' | 'hard'}
+ */
+function normalizeDifficulty(value) {
+  if (typeof value === 'string' && ALLOWED_DIFFICULTIES.has(value)) {
+    return /** @type {'easy' | 'medium' | 'hard'} */ (value);
+  }
+  return 'easy';
+}
+
+/**
+ * 時間(分)を許可範囲へ丸める。
+ * @param {unknown} value
+ * @returns {number}
+ */
+function normalizeMinutes(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return MINUTES_MIN;
+  const rounded = Math.round(numeric);
+  return Math.min(Math.max(rounded, MINUTES_MIN), MINUTES_MAX);
+}
+
+/**
+ * 進捗カウンタを 0 以上の整数へ丸める。
+ * @param {unknown} value
+ * @returns {number}
+ */
+function toNonNegativeInt(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return 0;
+  return Math.floor(numeric);
 }
 
 function generateUniqueRoomCode() {
@@ -115,14 +204,16 @@ function handleCompletionIfFinished(roomCode) {
 io.on('connection', (socket) => {
   socket.on('room:create', ({ playerName, difficulty, minutes }, ack) => {
     const roomCode = generateUniqueRoomCode();
-    const question = pickQuestion(difficulty);
+    const safeDifficulty = normalizeDifficulty(difficulty);
+    const safeMinutes = normalizeMinutes(minutes);
+    const question = pickQuestion(safeDifficulty);
     const playerId = socket.id;
 
     const room = {
       code: roomCode,
       hostPlayerId: playerId,
-      difficulty,
-      minutes,
+      difficulty: safeDifficulty,
+      minutes: safeMinutes,
       status: 'waiting',
       question,
       startedAt: null,
@@ -132,7 +223,7 @@ io.on('connection', (socket) => {
     room.players.set(playerId, {
       playerId,
       socketId: socket.id,
-      name: playerName || 'Host',
+      name: sanitizePlayerName(playerName, 'Host'),
       currentCharIndex: 0,
       correctCount: 0,
       errorCount: 0,
@@ -152,7 +243,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('room:join', ({ roomCode, playerName }, ack) => {
-    const normalizedCode = String(roomCode ?? '').replace(/\D/g, '').slice(0, 3);
+    const normalizedCode = normalizeRoomCode(roomCode);
     const room = rooms.get(normalizedCode);
     if (!room) {
       ack?.({ ok: false, message: 'ルームが見つかりません。' });
@@ -162,12 +253,16 @@ io.on('connection', (socket) => {
       ack?.({ ok: false, message: '既に開始済みのルームです。' });
       return;
     }
+    if (room.players.size >= MAX_PLAYERS_PER_ROOM) {
+      ack?.({ ok: false, message: 'ルームが満員です。' });
+      return;
+    }
 
     const playerId = socket.id;
     room.players.set(playerId, {
       playerId,
       socketId: socket.id,
-      name: playerName || 'Player',
+      name: sanitizePlayerName(playerName, 'Player'),
       currentCharIndex: 0,
       correctCount: 0,
       errorCount: 0,
@@ -186,7 +281,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('room:start', ({ roomCode }, ack) => {
-    const room = rooms.get(roomCode);
+    const normalizedCode = normalizeRoomCode(roomCode);
+    const room = rooms.get(normalizedCode);
     if (!room) {
       ack?.({ ok: false, message: 'ルームが見つかりません。' });
       return;
@@ -202,8 +298,8 @@ io.on('connection', (socket) => {
 
     room.status = 'playing';
     room.startedAt = Date.now();
-    emitRoomState(roomCode);
-    io.to(roomCode).emit('game:started', {
+    emitRoomState(normalizedCode);
+    io.to(normalizedCode).emit('game:started', {
       question: room.question,
       timeLimitSeconds: room.minutes * 60,
       startedAt: room.startedAt,
@@ -212,7 +308,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('room:update-settings', ({ roomCode, difficulty, minutes }, ack) => {
-    const room = rooms.get(roomCode);
+    const normalizedCode = normalizeRoomCode(roomCode);
+    const room = rooms.get(normalizedCode);
     if (!room) {
       ack?.({ ok: false, message: 'ルームが見つかりません。' });
       return;
@@ -226,15 +323,16 @@ io.on('connection', (socket) => {
       return;
     }
 
-    room.difficulty = difficulty ?? room.difficulty;
-    room.minutes = minutes ?? room.minutes;
+    room.difficulty = normalizeDifficulty(difficulty ?? room.difficulty);
+    room.minutes = normalizeMinutes(minutes ?? room.minutes);
     room.question = pickQuestion(room.difficulty);
-    emitRoomState(roomCode);
+    emitRoomState(normalizedCode);
     ack?.({ ok: true, question: room.question });
   });
 
   socket.on('room:reopen', ({ roomCode }, ack) => {
-    const room = rooms.get(roomCode);
+    const normalizedCode = normalizeRoomCode(roomCode);
+    const room = rooms.get(normalizedCode);
     if (!room) {
       ack?.({ ok: false, message: 'ルームが見つかりません。' });
       return;
@@ -248,41 +346,49 @@ io.on('connection', (socket) => {
     room.startedAt = null;
     room.question = pickQuestion(room.difficulty);
     room.players.forEach((player) => resetPlayerStatus(player));
-    emitRoomState(roomCode);
+    emitRoomState(normalizedCode);
     ack?.({ ok: true, question: room.question });
   });
 
   socket.on('game:progress', ({ roomCode, progress }) => {
-    const room = rooms.get(roomCode);
+    const normalizedCode = normalizeRoomCode(roomCode);
+    if (normalizedCode !== socket.data.roomCode) return;
+    const room = rooms.get(normalizedCode);
     if (!room || room.status !== 'playing') return;
     const player = room.players.get(socket.id);
     if (!player || player.isCompleted) return;
 
-    player.currentCharIndex = progress.currentCharIndex ?? player.currentCharIndex;
-    player.correctCount = progress.correctCount ?? player.correctCount;
-    player.totalInputCount = progress.totalInputCount ?? player.totalInputCount;
-    player.errorCount = progress.errorCount ?? player.errorCount;
+    const nextCurrent = toNonNegativeInt(progress?.currentCharIndex);
+    const nextCorrect = toNonNegativeInt(progress?.correctCount);
+    const nextTotal = toNonNegativeInt(progress?.totalInputCount);
+    const nextError = toNonNegativeInt(progress?.errorCount);
+    player.currentCharIndex = Math.max(player.currentCharIndex, nextCurrent);
+    player.correctCount = Math.max(player.correctCount, nextCorrect);
+    player.totalInputCount = Math.max(player.totalInputCount, nextTotal);
+    player.errorCount = Math.max(player.errorCount, nextError);
     player.elapsedTime = room.startedAt ? Date.now() - room.startedAt : 0;
 
-    emitRoomState(roomCode);
+    emitRoomState(normalizedCode);
   });
 
   socket.on('game:complete', ({ roomCode, stats }) => {
-    const room = rooms.get(roomCode);
+    const normalizedCode = normalizeRoomCode(roomCode);
+    if (normalizedCode !== socket.data.roomCode) return;
+    const room = rooms.get(normalizedCode);
     if (!room) return;
     const player = room.players.get(socket.id);
     if (!player) return;
 
-    player.currentCharIndex = stats.currentCharIndex ?? player.currentCharIndex;
-    player.correctCount = stats.correctCount ?? player.correctCount;
-    player.totalInputCount = stats.totalInputCount ?? player.totalInputCount;
-    player.errorCount = stats.errorCount ?? player.errorCount;
-    player.elapsedTime = stats.elapsedTime ?? player.elapsedTime;
+    player.currentCharIndex = Math.max(player.currentCharIndex, toNonNegativeInt(stats?.currentCharIndex));
+    player.correctCount = Math.max(player.correctCount, toNonNegativeInt(stats?.correctCount));
+    player.totalInputCount = Math.max(player.totalInputCount, toNonNegativeInt(stats?.totalInputCount));
+    player.errorCount = Math.max(player.errorCount, toNonNegativeInt(stats?.errorCount));
+    player.elapsedTime = Math.max(player.elapsedTime, toNonNegativeInt(stats?.elapsedTime));
     player.isCompleted = true;
     player.finishedAt = Date.now();
 
-    emitRoomState(roomCode);
-    handleCompletionIfFinished(roomCode);
+    emitRoomState(normalizedCode);
+    handleCompletionIfFinished(normalizedCode);
   });
 
   socket.on('disconnect', () => {

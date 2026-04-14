@@ -115,8 +115,6 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBa
         }
     }, [isPlaying, handleGameFinish]);
 
-    const remainingTime = Math.max(0, timeLimit - elapsedTime);
-
     /**
      * 進捗更新
      */
@@ -252,8 +250,6 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBa
                     <TypingDisplay
                         key={`${currentQuestion.id}-${completedQuestionCount}`}
                         japanese={currentQuestion.japanese}
-                        romaji={currentQuestion.romaji}
-                        alternatives={currentQuestion.alternatives}
                         accentColor={`${accentColor}-500`}
                         onProgress={handleProgress}
                         onComplete={handleTypingComplete}

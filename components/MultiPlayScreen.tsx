@@ -10,6 +10,11 @@ import { GameStartedPayload, MultiplayerRoomState } from '@/types/multiplayer';
 import questionsData from '@/data/questions.json';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_MULTIPLAYER_URL ?? 'http://localhost:4001';
+const DEFAULT_PLAYER_NAME = 'Player';
+const DEFAULT_HOST_NAME = 'Host';
+const MINUTES_MIN = 1;
+const MINUTES_MAX = 5;
+const ROOM_CODE_LENGTH = 3;
 
 const difficultyOptions: { key: Difficulty; label: string }[] = [
     { key: 'easy', label: '初級' },
@@ -19,6 +24,39 @@ const difficultyOptions: { key: Difficulty; label: string }[] = [
 
 type Mode = 'menu' | 'lobby' | 'playing' | 'finished';
 type MenuView = 'create' | 'join';
+
+interface RoomActionAck {
+    ok: boolean;
+    message?: string;
+}
+
+interface JoinCreateAck extends RoomActionAck {
+    roomCode?: string;
+    playerId?: string;
+    question?: Question;
+}
+
+interface UpdateSettingsAck extends RoomActionAck {
+    question?: Question;
+}
+
+/**
+ * ルームコード入力を 3 桁数字に正規化する。
+ */
+const normalizeRoomCode = (value: string): string => value.replace(/\D/g, '').slice(0, ROOM_CODE_LENGTH);
+
+/**
+ * ユーザー名をトリム・長さ制限して送信値を安定化する。
+ */
+const normalizePlayerName = (value: string, fallback: string): string => {
+    const normalized = value.trim().slice(0, 16);
+    return normalized || fallback;
+};
+
+/**
+ * 時間(分)を許可範囲に丸めて不正な UI 値混入を防ぐ。
+ */
+const clampMinutes = (value: number): number => Math.max(MINUTES_MIN, Math.min(MINUTES_MAX, Math.round(value)));
 
 export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBackToHome }) => {
     const socketRef = useRef<Socket | null>(null);
@@ -140,20 +178,15 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     const createRoom = useCallback(() => {
         setErrorMessage('');
         const socket = ensureSocket();
+        const safePlayerName = normalizePlayerName(playerName, DEFAULT_HOST_NAME);
         socket.emit(
             'room:create',
             {
-                playerName: playerName.trim() || 'Host',
+                playerName: safePlayerName,
                 difficulty,
-                minutes,
+                minutes: clampMinutes(minutes),
             },
-            (response: {
-                ok: boolean;
-                roomCode?: string;
-                playerId?: string;
-                question?: Question;
-                message?: string;
-            }) => {
+            (response: JoinCreateAck) => {
                 if (!response.ok) {
                     setErrorMessage(response.message ?? 'ルーム作成に失敗しました。');
                     return;
@@ -168,20 +201,21 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
     const joinRoom = useCallback(() => {
         setErrorMessage('');
+        const normalizedRoomCode = normalizeRoomCode(roomCodeInput);
+        if (normalizedRoomCode.length !== ROOM_CODE_LENGTH) {
+            setErrorMessage('ルームコードは3桁の数字で入力してください。');
+            return;
+        }
+
         const socket = ensureSocket();
+        const safePlayerName = normalizePlayerName(playerName, DEFAULT_PLAYER_NAME);
         socket.emit(
             'room:join',
             {
-                roomCode: roomCodeInput.trim().toUpperCase(),
-                playerName: playerName.trim() || 'Player',
+                roomCode: normalizedRoomCode,
+                playerName: safePlayerName,
             },
-            (response: {
-                ok: boolean;
-                roomCode?: string;
-                playerId?: string;
-                question?: Question;
-                message?: string;
-            }) => {
+            (response: JoinCreateAck) => {
                 if (!response.ok) {
                     setErrorMessage(response.message ?? '入室に失敗しました。');
                     return;
@@ -198,7 +232,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
         if (!roomState) return;
         setErrorMessage('');
         const socket = ensureSocket();
-        socket.emit('room:start', { roomCode: roomState.roomCode }, (response: { ok: boolean; message?: string }) => {
+        socket.emit('room:start', { roomCode: roomState.roomCode }, (response: RoomActionAck) => {
             if (!response.ok) {
                 setErrorMessage(response.message ?? '開始に失敗しました。');
             }
@@ -214,9 +248,9 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
             {
                 roomCode: roomState.roomCode,
                 difficulty,
-                minutes,
+                minutes: clampMinutes(minutes),
             },
-            (response: { ok: boolean; question?: Question; message?: string }) => {
+            (response: UpdateSettingsAck) => {
                 if (!response.ok) {
                     setErrorMessage(response.message ?? '設定更新に失敗しました。');
                     return;
@@ -235,7 +269,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
         socket.emit(
             'room:reopen',
             { roomCode: roomState.roomCode },
-            (response: { ok: boolean; question?: Question; message?: string }) => {
+            (response: UpdateSettingsAck) => {
                 if (!response.ok) {
                     setErrorMessage(response.message ?? 'ロビーに戻せませんでした。');
                     return;
@@ -389,7 +423,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                                             max={5}
                                             step={1}
                                             value={minutes}
-                                            onChange={(e) => setMinutes(Number(e.target.value))}
+                                    onChange={(e) => setMinutes(clampMinutes(Number(e.target.value)))}
                                             className="w-full accent-gray-900"
                                             aria-label="制限時間"
                                         />
@@ -434,7 +468,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                                     <input
                                         value={roomCodeInput}
                                         onChange={(e) =>
-                                            setRoomCodeInput(e.target.value.replace(/\D/g, '').slice(0, 3))
+                                            setRoomCodeInput(normalizeRoomCode(e.target.value))
                                         }
                                         className="flex-1 rounded border border-gray-300 px-3 py-2 tracking-[0.3em]"
                                         placeholder="例: 123"
@@ -522,7 +556,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                                         max={5}
                                         step={1}
                                         value={minutes}
-                                        onChange={(e) => setMinutes(Number(e.target.value))}
+                                        onChange={(e) => setMinutes(clampMinutes(Number(e.target.value)))}
                                         className="w-full accent-gray-900 disabled:opacity-40"
                                         aria-label="制限時間"
                                         disabled={!isHost}
@@ -584,8 +618,6 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             <TypingDisplay
                                 key={`${question.id}-${completedQuestionCount}`}
                                 japanese={question.japanese}
-                                romaji={question.romaji}
-                                alternatives={question.alternatives}
                                 accentColor="blue"
                                 onProgress={handleProgress}
                                 onError={handleError}
