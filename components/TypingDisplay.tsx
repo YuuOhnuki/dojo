@@ -93,7 +93,6 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
         [japanese, japaneseIndex, userInput, onProgress, onComplete, onError],
     );
 
-
     useEffect(() => {
         inputRef.current?.focus();
     }, []);
