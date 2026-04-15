@@ -133,10 +133,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSe
 
             <div className="absolute bottom-6 right-6 text-right text-lg text-gray-600">
                 <div className="flex items-center gap-2">
-                    <span className="font-medium">マルチサーバー:</span>
-                    <span className={isServerOnline ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'}>
-                        {isServerOnline === null ? '確認中' : isServerOnline ? 'オンライン' : 'オフライン'}
-                    </span>
+                    <span className="font-medium">マルチサーバー</span>
+                    <span className={`inline-block w-3 h-3 rounded-full ${
+                        isServerOnline === null ? 'bg-gray-400 animate-pulse' : isServerOnline ? 'bg-emerald-500' : 'bg-red-500'
+                    }`}></span>
                 </div>
                 <div className="mt-1">v{appVersion}</div>
             </div>

@@ -784,8 +784,8 @@
                 "id": "hard-020",
                 "difficulty": "hard",
                 "japanese": "試行錯誤を繰り返して完成度を高める",
-                "romaji": "shikousakugowokurikaeshitekansendowotakameru",
-                "alternatives": ["sikousakugowokurikaesitekansendowotakameru"]
+                "romaji": "shikousakugowokurikaeshitekanseidowotakameru",
+                "alternatives": ["sikousakugowokurikaesitekanseidowotakameru"]
             },
             {
                 "id": "hard-021",
@@ -798,8 +798,8 @@
                 "id": "hard-022",
                 "difficulty": "hard",
                 "japanese": "科学的根拠に基づいた議論を行う",
-                "romaji": "kagakutekikonkyonimotozuitagironwookonau",
-                "alternatives": ["kagakutekikonkyonimotozuitagironwookonau"]
+                "romaji": "kagakutekikonkyonimotoduitagironwookonau",
+                "alternatives": ["kagakutekikonkyonimotoduitagironwookonau"]
             },
             {
                 "id": "hard-023",
@@ -1037,10 +1037,10 @@
                 "id": "hard-051",
                 "difficulty": "hard",
                 "japanese": "効率的な情報収集と活用のサイクル",
-                "romaji": "kouritsutekinajouhoushuushuutokatsuuyounosaikuru",
+                "romaji": "kouritsutekinajouhoushuushuutokatsuyounosaikuru",
                 "alternatives": [
-                    "kouritutekinazyouhousyuusyuutokatsuuyounosaikuru",
-                    "kouritsutekinajouhoushuushuutokatsuuyounosaikuru"
+                    "kouritutekinazyouhousyuusyuutokatsuyounosaikuru",
+                    "kouritsutekinajouhoushuushuutokatsuyounosaikuru"
                 ]
             },
             {
@@ -1111,10 +1111,10 @@
                 "id": "hard-059",
                 "difficulty": "hard",
                 "japanese": "倫理観を持って技術を利用する責任",
-                "romaji": "rinrikannwoomottegijutsuwouriyousurusekinin",
+                "romaji": "rinrikannwoomottegijutsuworiyousurusekinin",
                 "alternatives": [
-                    "rinrikannwoomottegizyutuwouriyousurusekinin",
-                    "rinrikannwoomottegijutsuwouriyousurusekinin"
+                    "rinrikannwoomottegizyutuworiyousurusekinin",
+                    "rinrikannwoomottegijutsuworiyousurusekinin"
                 ]
             },
             {
@@ -1152,10 +1152,10 @@
                 "id": "hard-064",
                 "difficulty": "hard",
                 "japanese": "クリティカルシンキングで本質的な問いを立てる",
-                "romaji": "kuritikarushinkingudehonshitsutekinatoyiwotateru",
+                "romaji": "kurithikarushinkingudehonshitsutekinatoiwotateru",
                 "alternatives": [
-                    "kuritikarusinnkinngudehonsitutekinatoyiwotateru",
-                    "kuritikarushinkingudehonsitutekinatoyiwotateru"
+                    "kuritelikarusinnkinngudehonsitutekinatoiwotateru",
+                    "kurithikarushinkingudehonsitutekinatoiwotateru"
                 ]
             },
             {

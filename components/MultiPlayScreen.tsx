@@ -6,6 +6,7 @@ import { Crown } from 'lucide-react';
 import { TypingDisplay } from '@/components/TypingDisplay';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Button } from '@/components/ui/button';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Difficulty, Question } from '@/types/typing';
 import { GameStartedPayload, MultiplayerRoomState } from '@/types/multiplayer';
 import questionsData from '@/data/questions.json';
@@ -229,7 +230,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
     const joinRoom = useCallback(() => {
         setErrorMessage('');
-        const normalizedRoomCode = normalizeRoomCode(roomCodeInput);
+        const normalizedRoomCode = roomCodeInput;
         if (normalizedRoomCode.length !== ROOM_CODE_LENGTH) {
             setErrorMessage('ルームコードは3桁の数字で入力してください。');
             return;
@@ -395,16 +396,6 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
             <div className="min-h-screen flex items-center justify-center px-4">
                 <div className="w-full max-w-xl rounded-xl border border-gray-200 bg-white p-6 space-y-5">
                     <h2 className="text-2xl font-light">マルチプレイ</h2>
-                    {serverOnline === false && (
-                        <div className="rounded-lg bg-red-50 border border-red-200 p-3">
-                            <div className="text-sm text-red-700">サーバーがオフラインです。後ほどお試しください。</div>
-                        </div>
-                    )}
-                    {serverOnline === true && (
-                        <div className="rounded-lg bg-green-50 border border-green-200 p-3">
-                            <div className="text-sm text-green-700">サーバーはオンラインです。</div>
-                        </div>
-                    )}
                     <div className="rounded-xl border border-gray-200 bg-gray-50 p-1 grid grid-cols-2 gap-1">
                         <button
                             type="button"
@@ -506,15 +497,14 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             </div>
                             <div className="space-y-2">
                                 <div className="text-sm text-gray-500">3桁ルームコード</div>
-                                <div className="flex gap-2">
-                                    <input
-                                        value={roomCodeInput}
-                                        onChange={(e) => setRoomCodeInput(normalizeRoomCode(e.target.value))}
-                                        className="flex-1 rounded border border-gray-300 px-3 py-2 tracking-[0.3em]"
-                                        placeholder="例: 123"
-                                        inputMode="numeric"
-                                        maxLength={3}
-                                    />
+                                <div className="flex justify-center">
+                                    <InputOTP maxLength={3} value={roomCodeInput} onChange={setRoomCodeInput}>
+                                        <InputOTPGroup>
+                                            <InputOTPSlot index={0} />
+                                            <InputOTPSlot index={1} />
+                                            <InputOTPSlot index={2} />
+                                        </InputOTPGroup>
+                                    </InputOTP>
                                 </div>
                             </div>
                             <div className="flex flex-col gap-2">
