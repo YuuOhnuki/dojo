@@ -13,6 +13,7 @@ export interface MultiplayerPlayer {
     isCompleted: boolean;
     elapsedTime: number;
     finishedAt: number | null;
+    dbRank?: number | null;
 }
 
 export interface MultiplayerRoomState {

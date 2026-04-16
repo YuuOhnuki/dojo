@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Server } from 'socket.io';
+import { createClient } from '@libsql/client';
 
 const PORT = Number(process.env.PORT ?? process.env.MULTIPLAYER_PORT ?? 4001);
 const CLIENT_ORIGIN = process.env.NEXT_PUBLIC_APP_ORIGIN ?? 'http://localhost:3000';
@@ -9,6 +10,91 @@ const MAX_PLAYERS_PER_ROOM = 12;
 const MINUTES_MIN = 1;
 const MINUTES_MAX = 5;
 const ALLOWED_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
+
+function loadLocalEnv() {
+    const envPath = path.join(process.cwd(), '.env');
+    if (!fs.existsSync(envPath)) return;
+
+    const lines = fs.readFileSync(envPath, 'utf-8').split(/\r?\n/);
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const separatorIndex = trimmed.indexOf('=');
+        if (separatorIndex <= 0) continue;
+        const key = trimmed.slice(0, separatorIndex).trim();
+        if (!key || process.env[key] !== undefined) continue;
+        const value = trimmed.slice(separatorIndex + 1).trim();
+        process.env[key] = value;
+    }
+}
+
+loadLocalEnv();
+
+const TURSO_DATABASE_URL = process.env.TURSO_DATABASE_URL;
+const TURSO_AUTH_TOKEN = process.env.TURSO_AUTH_TOKEN;
+const TURSO_ENABLED = Boolean(
+    TURSO_DATABASE_URL && (!TURSO_DATABASE_URL.startsWith('libsql://') || TURSO_AUTH_TOKEN),
+);
+
+const tursoClient = TURSO_ENABLED
+    ? createClient({
+          url: TURSO_DATABASE_URL,
+          authToken: TURSO_AUTH_TOKEN,
+      })
+    : null;
+
+let schemaEnsured = false;
+
+const CREATE_DB_SCHEMA_SQL = [
+    `
+    CREATE TABLE IF NOT EXISTS players (
+        id TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    )
+    `,
+    `
+    CREATE TABLE IF NOT EXISTS game_sessions (
+        id TEXT PRIMARY KEY,
+        mode TEXT NOT NULL CHECK (mode IN ('single', 'multi')),
+        difficulty TEXT NOT NULL CHECK (difficulty IN ('easy', 'medium', 'hard', 'survival')),
+        started_at INTEGER,
+        ended_at INTEGER,
+        room_code TEXT,
+        source TEXT,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    )
+    `,
+    `
+    CREATE TABLE IF NOT EXISTS game_results (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        player_id TEXT NOT NULL,
+        player_name TEXT NOT NULL,
+        mode TEXT NOT NULL CHECK (mode IN ('single', 'multi')),
+        difficulty TEXT NOT NULL CHECK (difficulty IN ('easy', 'medium', 'hard', 'survival')),
+        total_time_ms INTEGER NOT NULL,
+        correct_count INTEGER NOT NULL,
+        error_count INTEGER NOT NULL,
+        total_input_count INTEGER NOT NULL,
+        correct_rate REAL NOT NULL,
+        error_rate REAL NOT NULL,
+        kpm REAL NOT NULL,
+        max_combo INTEGER,
+        completed_question_count INTEGER,
+        survival_duration_seconds INTEGER,
+        reached_phase INTEGER,
+        multiplayer_rank INTEGER,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        FOREIGN KEY (session_id) REFERENCES game_sessions(id),
+        FOREIGN KEY (player_id) REFERENCES players(id)
+    )
+    `,
+    `
+    CREATE INDEX IF NOT EXISTS idx_results_difficulty_score
+    ON game_results (difficulty, correct_count DESC, total_input_count DESC, kpm DESC, total_time_ms ASC)
+    `,
+];
 
 const dataPath = path.join(process.cwd(), 'data', 'questions.json');
 const questionsData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
@@ -25,6 +111,8 @@ const questionsData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
  *   isCompleted: boolean;
  *   elapsedTime: number;
  *   finishedAt: number | null;
+ *   dbRank: number | null;
+ *   persistedToDb: boolean;
  * }} Player
  */
 
@@ -148,6 +236,14 @@ function toNonNegativeInt(value) {
     return Math.floor(numeric);
 }
 
+async function ensureDbSchema() {
+    if (!tursoClient || schemaEnsured) return;
+    for (const statement of CREATE_DB_SCHEMA_SQL) {
+        await tursoClient.execute(statement);
+    }
+    schemaEnsured = true;
+}
+
 function generateUniqueRoomCode() {
     let code = makeRoomCode();
     while (rooms.has(code)) {
@@ -177,6 +273,8 @@ function resetPlayerStatus(player) {
     player.isCompleted = false;
     player.elapsedTime = 0;
     player.finishedAt = null;
+    player.dbRank = null;
+    player.persistedToDb = false;
 }
 
 function toPublicPlayer(player) {
@@ -193,18 +291,132 @@ function toPublicPlayer(player) {
         isCompleted: player.isCompleted,
         elapsedTime: player.elapsedTime,
         finishedAt: player.finishedAt ?? null,
+        dbRank: player.dbRank ?? null,
     };
+}
+
+function sortPlayersByRace(players) {
+    return [...players].sort((a, b) => {
+        if (a.correctCount !== b.correctCount) return b.correctCount - a.correctCount;
+        if (a.totalInputCount !== b.totalInputCount) return b.totalInputCount - a.totalInputCount;
+        if (a.errorCount !== b.errorCount) return a.errorCount - b.errorCount;
+        return (a.finishedAt ?? Infinity) - (b.finishedAt ?? Infinity);
+    });
+}
+
+function getPlayerRaceRank(room, playerId) {
+    const sorted = sortPlayersByRace(Array.from(room.players.values()));
+    const index = sorted.findIndex((player) => player.playerId === playerId);
+    return index >= 0 ? index + 1 : null;
+}
+
+async function persistMultiplayerResult(room, player, multiplayerRank) {
+    if (!tursoClient || player.persistedToDb) return;
+
+    try {
+        await ensureDbSchema();
+
+        const totalAttempts = player.totalInputCount + player.errorCount;
+        const correctRate = totalAttempts > 0 ? (player.correctCount / totalAttempts) * 100 : 0;
+        const errorRate = totalAttempts > 0 ? (player.errorCount / totalAttempts) * 100 : 0;
+        const kpm = player.elapsedTime > 0 ? player.totalInputCount / (player.elapsedTime / 60000) : 0;
+        const sessionId = `multi-${room.code}-${room.startedAt ?? Date.now()}`;
+
+        await tursoClient.batch(
+            [
+                {
+                    sql: `
+                        INSERT INTO players (id, display_name)
+                        VALUES (?, ?)
+                        ON CONFLICT(id) DO UPDATE SET display_name = excluded.display_name
+                    `,
+                    args: [player.playerId, player.name],
+                },
+                {
+                    sql: `
+                        INSERT OR IGNORE INTO game_sessions (
+                            id, mode, difficulty, started_at, ended_at, room_code, source
+                        )
+                        VALUES (?, 'multi', ?, ?, ?, ?, ?)
+                    `,
+                    args: [sessionId, room.difficulty, room.startedAt ?? null, Date.now(), room.code, 'socket-server'],
+                },
+                {
+                    sql: `
+                        INSERT INTO game_results (
+                            session_id,
+                            player_id,
+                            player_name,
+                            mode,
+                            difficulty,
+                            total_time_ms,
+                            correct_count,
+                            error_count,
+                            total_input_count,
+                            correct_rate,
+                            error_rate,
+                            kpm,
+                            multiplayer_rank
+                        )
+                        VALUES (?, ?, ?, 'multi', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `,
+                    args: [
+                        sessionId,
+                        player.playerId,
+                        player.name,
+                        room.difficulty,
+                        toNonNegativeInt(player.elapsedTime),
+                        toNonNegativeInt(player.correctCount),
+                        toNonNegativeInt(player.errorCount),
+                        toNonNegativeInt(player.totalInputCount),
+                        Math.max(correctRate, 0),
+                        Math.max(errorRate, 0),
+                        Math.max(kpm, 0),
+                        multiplayerRank,
+                    ],
+                },
+            ],
+            'write',
+        );
+
+        const insertedRow = await tursoClient.execute({ sql: 'SELECT last_insert_rowid() AS id' });
+        const insertedId = Number(insertedRow.rows[0]?.id ?? 0);
+        const rankRow = await tursoClient.execute({
+            sql: `
+                WITH ranked AS (
+                    SELECT
+                        id,
+                        ROW_NUMBER() OVER (
+                            ORDER BY
+                                correct_count DESC,
+                                total_input_count DESC,
+                                kpm DESC,
+                                correct_rate DESC,
+                                total_time_ms ASC,
+                                created_at ASC,
+                                id ASC
+                        ) AS rank
+                    FROM game_results
+                    WHERE difficulty = ?
+                )
+                SELECT rank
+                FROM ranked
+                WHERE id = ?
+            `,
+            args: [room.difficulty, insertedId],
+        });
+
+        player.dbRank = Number(rankRow.rows[0]?.rank ?? 0);
+        player.persistedToDb = true;
+    } catch (error) {
+        console.error('[multiplayer][db] failed to persist result', error);
+    }
 }
 
 function emitRoomState(roomCode) {
     const room = rooms.get(roomCode);
     if (!room) return;
-    const players = Array.from(room.players.values())
-        .map(toPublicPlayer)
-        .sort((a, b) => {
-            if (a.isCompleted !== b.isCompleted) return a.isCompleted ? -1 : 1;
-            return b.currentCharIndex - a.currentCharIndex;
-        });
+    const players = sortPlayersByRace(Array.from(room.players.values())).map(toPublicPlayer);
 
     io.to(roomCode).emit('room:state', {
         roomCode: room.code,
@@ -259,6 +471,8 @@ io.on('connection', (socket) => {
             isCompleted: false,
             elapsedTime: 0,
             finishedAt: null,
+            dbRank: null,
+            persistedToDb: false,
         });
 
         rooms.set(roomCode, room);
@@ -298,6 +512,8 @@ io.on('connection', (socket) => {
             isCompleted: false,
             elapsedTime: 0,
             finishedAt: null,
+            dbRank: null,
+            persistedToDb: false,
         });
 
         socket.join(normalizedCode);
@@ -399,7 +615,7 @@ io.on('connection', (socket) => {
         emitRoomState(normalizedCode);
     });
 
-    socket.on('game:complete', ({ roomCode, stats }) => {
+    socket.on('game:complete', async ({ roomCode, stats }) => {
         const normalizedCode = normalizeRoomCode(roomCode);
         if (normalizedCode !== socket.data.roomCode) return;
         const room = rooms.get(normalizedCode);
@@ -415,6 +631,8 @@ io.on('connection', (socket) => {
         player.isCompleted = true;
         player.finishedAt = Date.now();
 
+        const multiplayerRank = getPlayerRaceRank(room, player.playerId);
+        await persistMultiplayerResult(room, player, multiplayerRank);
         emitRoomState(normalizedCode);
         handleCompletionIfFinished(normalizedCode);
     });

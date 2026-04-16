@@ -16,6 +16,19 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Turso setup
+
+Set the following environment variables in `.env`.
+
+```bash
+TURSO_DATABASE_URL=libsql://typic-yuuohnuki.aws-us-east-1.turso.io
+TURSO_AUTH_TOKEN=your-token
+```
+
+- Single play results are saved through `POST /api/results`.
+- Multiplayer results are saved directly from `server/multiplayer-server.mjs`.
+- Difficulty-specific leaderboards use shared ordering: higher KPM, higher accuracy, more correct chars, then shorter time.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

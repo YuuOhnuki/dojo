@@ -8,15 +8,14 @@ import { ResultCard } from '@/components/ResultCard';
 import { ActionButton, ActionButtonRow } from '@/components/ui/action-button';
 import { Progress } from '@/components/ui/progress';
 import { useGameStore } from '@/store/gameStore';
-import { Difficulty, GameResult, Question } from '@/types/typing';
+import { Difficulty, DifficultyLeaderboardEntry, GameResult, Question } from '@/types/typing';
 import questionsData from '@/data/questions.json';
 
 const SURVIVAL_SETTINGS = {
     initialHp: 100,
     maxHp: 100,
     baseHpDrainPerSecond: 4,
-    phaseDurationSeconds: 30,
-    hpDrainGrowthPerPhase: 1,
+    hpDrainGrowthPerPhase: 0.5,
     errorPenaltyHp: 2,
     timeoutPenaltyHp: 10,
     questionClearBonusHpByDifficulty: {
@@ -24,7 +23,7 @@ const SURVIVAL_SETTINGS = {
         medium: 16,
         hard: 20,
     },
-    comboBonusEvery: 15,
+    comboBonusEvery: 10,
     comboBonusHp: 10,
     minQuestionTimeSeconds: 10,
     maxQuestionTimeSeconds: 20,
@@ -42,6 +41,10 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBa
 
     const [showResult, setShowResult] = useState(false);
     const [gameResult, setGameResult] = useState<GameResult | null>(null);
+    const [leaderboard, setLeaderboard] = useState<DifficultyLeaderboardEntry[]>([]);
+    const [isSavingPlayerName, setIsSavingPlayerName] = useState(false);
+    const [isPlayerNameSaved, setIsPlayerNameSaved] = useState(false);
+    const [savePlayerNameError, setSavePlayerNameError] = useState('');
     const [timeLimit, setTimeLimit] = useState(60);
     const [elapsedTime, setElapsedTime] = useState(0);
     const [gameStartedAt, setGameStartedAt] = useState<number | null>(null);
@@ -277,6 +280,63 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBa
         moveToNextQuestion('completed');
     }, [moveToNextQuestion]);
 
+    const saveResultToDb = useCallback(
+        async (result: GameResult, playerName: string) => {
+            try {
+                setIsSavingPlayerName(true);
+                setSavePlayerNameError('');
+                const response = await fetch('/api/results', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        ...result,
+                        playerName,
+                        mode: 'single',
+                        startedAt: currentSession?.startedAt,
+                        endedAt: Date.now(),
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('保存に失敗しました。');
+                }
+
+                const payload = (await response.json()) as {
+                    ok: boolean;
+                    dbRank?: number;
+                    leaderboard?: DifficultyLeaderboardEntry[];
+                };
+
+                if (!payload.ok) {
+                    throw new Error('保存に失敗しました。');
+                }
+
+                setGameResult((prev) => (prev ? { ...prev, dbRank: payload.dbRank, playerName } : prev));
+                setLeaderboard(Array.isArray(payload.leaderboard) ? payload.leaderboard : []);
+                setIsPlayerNameSaved(true);
+                if (typeof window !== 'undefined') {
+                    window.localStorage.setItem('typic-player-name', playerName);
+                }
+            } catch (error) {
+                console.error('[single] failed to save result', error);
+                setSavePlayerNameError('保存に失敗しました。時間をおいて再試行してください。');
+            } finally {
+                setIsSavingPlayerName(false);
+            }
+        },
+        [currentSession],
+    );
+
+    const handleSavePlayerName = useCallback(
+        (playerName: string) => {
+            if (!gameResult) return;
+            void saveResultToDb(gameResult, playerName);
+        },
+        [gameResult, saveResultToDb],
+    );
+
     const handleGameFinish = useCallback(() => {
         if (!currentQuestion) return;
         if (isFinishingRef.current) return;
@@ -285,11 +345,13 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBa
         const totalTime = elapsedTime * 1000;
         const kpm = totalInputCount / (totalTime / 60000) || 0;
         const totalAttemptCount = totalInputCount + errorCount;
+        const defaultPlayerName =
+            typeof window !== 'undefined' ? window.localStorage.getItem('typic-player-name') || 'Player' : 'Player';
 
         const result: GameResult = {
             sessionId: currentSession?.sessionId || `session-${Date.now()}`,
             playerId: currentSession?.playerId || 'player',
-            playerName: 'You',
+            playerName: defaultPlayerName,
             difficulty,
             totalTime,
             correctCount,
@@ -305,6 +367,9 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBa
         };
 
         setGameResult(result);
+        setLeaderboard([]);
+        setIsPlayerNameSaved(false);
+        setSavePlayerNameError('');
         setShowResult(true);
         endGame(result);
     }, [
@@ -388,6 +453,9 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBa
         resetGame();
         setShowResult(false);
         setGameResult(null);
+        setLeaderboard([]);
+        setIsPlayerNameSaved(false);
+        setSavePlayerNameError('');
         setCurrentQuestion(null);
         onBackToHome?.();
     }, [resetGame, onBackToHome]);
@@ -479,7 +547,12 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBa
         return (
             <ResultCard
                 result={gameResult}
+                leaderboard={leaderboard}
                 accentColor={accentColor}
+                isSavingName={isSavingPlayerName}
+                isSavedName={isPlayerNameSaved}
+                saveErrorMessage={savePlayerNameError}
+                onSavePlayerName={handleSavePlayerName}
                 onRestart={handleRestart}
                 onBackToMenu={handleBackToMenu}
             />

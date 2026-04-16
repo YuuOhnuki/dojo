@@ -86,10 +86,23 @@ export interface GameResult {
     errorRate: number;
     kpm: number; // キーストロークパーミニット
     rank?: number; // マルチプレイの場合のランク
+    dbRank?: number; // 難易度別DBランキング順位
     maxCombo?: number;
     completedQuestionCount?: number;
     survivalDurationSeconds?: number;
     reachedPhase?: number;
+}
+
+export interface DifficultyLeaderboardEntry {
+    rank: number;
+    playerName: string;
+    kpm: number;
+    totalInputCount: number;
+    correctRate: number;
+    correctCount: number;
+    totalTime: number;
+    mode: 'single' | 'multi';
+    createdAt: number;
 }
 
 /**

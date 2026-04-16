@@ -11,8 +11,8 @@ interface Question {
 
 interface GameStore {
     // UI状態
-    currentScreen: 'home' | 'single' | 'multi';
-    setScreen: (screen: 'home' | 'single' | 'multi') => void;
+    currentScreen: 'home' | 'single' | 'multi' | 'leaderboard';
+    setScreen: (screen: 'home' | 'single' | 'multi' | 'leaderboard') => void;
 
     // ゲーム状態
     isPlaying: boolean;

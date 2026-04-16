@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { ChevronLeft, Clock3, Crown, Flame, Swords, UserRound } from 'lucide-react';
+import { BarChart3, ChevronLeft, Clock3, Crown, Flame, Keyboard, Users } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
 import { ActionButton, ActionButtonRow } from '@/components/ui/action-button';
@@ -11,6 +11,7 @@ import { Difficulty } from '@/types/typing';
 interface HomeScreenProps {
     onSelectSinglePlay: (difficulty: Difficulty, minutes: number) => void;
     onSelectMultiPlay: () => void;
+    onSelectLeaderboard: () => void;
     appVersion: string;
 }
 
@@ -19,14 +20,19 @@ interface HomeScreenProps {
  */
 const MULTIPLAYER_SERVER_URL = process.env.NEXT_PUBLIC_MULTIPLAYER_URL ?? 'http://localhost:4001';
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSelectMultiPlay, appVersion }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({
+    onSelectSinglePlay,
+    onSelectMultiPlay,
+    onSelectLeaderboard,
+    appVersion,
+}) => {
     const [showDifficultySelect, setShowDifficultySelect] = React.useState(false);
     const [selectedMinutes, setSelectedMinutes] = React.useState<number>(1);
     const [isServerOnline, setIsServerOnline] = React.useState<boolean | null>(null);
 
     const difficultyOptions: { key: Difficulty; label: string; description: string; icon: LucideIcon }[] = [
-        { key: 'easy', label: '初級', description: '単語中心', icon: UserRound },
-        { key: 'medium', label: '中級', description: '文をテンポ良く', icon: Swords },
+        { key: 'easy', label: '初級', description: '単語中心', icon: Keyboard },
+        { key: 'medium', label: '中級', description: '文をテンポ良く', icon: Users },
         { key: 'hard', label: '上級', description: '長文チャレンジ', icon: Crown },
         { key: 'survival', label: '極限', description: 'HP制サバイバル', icon: Flame },
     ];
@@ -59,7 +65,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSe
     }, []);
 
     return (
-        <div className="relative min-h-screen flex flex-col items-center justify-center px-4 overflow-hidden animate-fade-up-soft">
+        <div className="relative min-h-screen flex flex-col items-center justify-center px-4 pb-24 overflow-hidden animate-fade-up-soft">
             <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
                 <div className="absolute left-1/2 top-12 h-72 w-72 -translate-x-1/2 rounded-full bg-emerald-400/10 blur-3xl animate-float-soft" />
                 <div
@@ -88,19 +94,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSe
                     <ActionButtonRow>
                         <ActionButton
                             onClick={() => setShowDifficultySelect(true)}
-                            icon={UserRound}
+                            variant="default"
+                            icon={Keyboard}
                             size="lg"
-                            className="bg-primary text-primary-foreground hover:bg-primary/90"
                         >
                             シングルプレイ
                         </ActionButton>
                         <ActionButton
                             onClick={onSelectMultiPlay}
-                            variant="outline"
-                            icon={Swords}
+                            variant="secondary"
+                            icon={Users}
                             size="lg"
                         >
                             マルチプレイ
+                        </ActionButton>
+                        <ActionButton
+                            onClick={onSelectLeaderboard}
+                            variant="outline"
+                            icon={BarChart3}
+                            size="lg"
+                        >
+                            リーダーボード
                         </ActionButton>
                     </ActionButtonRow>
                 ) : (

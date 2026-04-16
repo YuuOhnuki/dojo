@@ -370,9 +370,10 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     const ranking = useMemo(() => {
         if (!roomState) return [];
         return [...roomState.players].sort((a, b) => {
-            if (a.isCompleted !== b.isCompleted) return a.isCompleted ? -1 : 1;
-            if (a.isCompleted && b.isCompleted) return (a.finishedAt ?? Infinity) - (b.finishedAt ?? Infinity);
-            return b.currentCharIndex - a.currentCharIndex;
+            if (a.correctCount !== b.correctCount) return b.correctCount - a.correctCount;
+            if (a.totalInputCount !== b.totalInputCount) return b.totalInputCount - a.totalInputCount;
+            if (a.errorCount !== b.errorCount) return a.errorCount - b.errorCount;
+            return (a.finishedAt ?? Infinity) - (b.finishedAt ?? Infinity);
         });
     }, [roomState]);
 
@@ -824,6 +825,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             <div>誤タイプ数: {myResult.errorCount}</div>
                             <div>正解率: {myResult.correctRate.toFixed(1)}%</div>
                             <div>KPM: {myResult.kpm.toFixed(1)}</div>
+                            <div>難易度別DB順位: {myResult.dbRank ? `${myResult.dbRank}位` : '計算中'}</div>
                         </div>
                     </div>
                 )}
