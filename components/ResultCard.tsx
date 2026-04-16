@@ -40,7 +40,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ result, accentColor = 'e
                 <div className="max-w-2xl mx-auto flex text-center items-center">
                     <Image
                         src="/logo.svg"
-                        alt="DOJO"
+                        alt="e-typic"
                         width={240}
                         height={76}
                         className="brand-logo h-auto w-[100px] md:w-[120px]"

@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
     return {
-        name: 'DOJO | タイピング練習',
-        short_name: 'DOJO',
+        name: 'e-typic | タイピング練習',
+        short_name: 'e-typic',
         description: 'ローマ字入力を中心に日本語タイピングを練習できるサイトです。',
         start_url: '/',
         display: 'standalone',

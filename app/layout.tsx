@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
     subsets: ['latin'],
 });
 
-const siteName = 'DOJO';
-const siteDescription = 'DOJOは、ローマ字入力を中心に日本語タイピングを楽しく継続できる練習サイトです。';
+const siteName = 'Typic';
+const siteDescription = 'Typicは、ローマ字入力を中心に日本語タイピングを楽しく継続できる練習サイトです。';
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
 export const metadata: Metadata = {
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
         template: `%s | ${siteName}`,
     },
     description: siteDescription,
-    keywords: ['タイピング', 'タイピング練習', 'ローマ字', '日本語入力', 'DOJO'],
+    keywords: ['タイピング', 'タイピング練習', 'ローマ字', '日本語入力', 'e-typic', 'Typic'],
     alternates: {
         canonical: '/',
     },

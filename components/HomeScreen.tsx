@@ -73,7 +73,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSe
                 <div className="flex justify-center">
                     <Image
                         src="/logo.svg"
-                        alt="DOJO"
+                        alt="e-typic"
                         width={420}
                         height={132}
                         priority

@@ -13,7 +13,7 @@ import { GameStartedPayload, MultiplayerRoomState } from '@/types/multiplayer';
 import questionsData from '@/data/questions.json';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_MULTIPLAYER_URL ?? 'http://localhost:4001';
-const HEALTH_CHECK_URL = 'https://dojo-597h.onrender.com/health';
+const HEALTH_CHECK_URL = `${SOCKET_URL}/health`;
 const DEFAULT_PLAYER_NAME = 'Player';
 const DEFAULT_HOST_NAME = 'Host';
 const MINUTES_MIN = 1;

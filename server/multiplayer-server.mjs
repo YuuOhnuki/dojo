@@ -69,7 +69,7 @@ const server = http.createServer((req, res) => {
 
     if (req.url === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, service: 'dojo-multiplayer-socket' }));
+        res.end(JSON.stringify({ ok: true, service: 'e-typic-multiplayer-socket' }));
         return;
     }
 
