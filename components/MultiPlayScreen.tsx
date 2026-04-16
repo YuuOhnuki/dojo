@@ -825,7 +825,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             <div>誤タイプ数: {myResult.errorCount}</div>
                             <div>正解率: {myResult.correctRate.toFixed(1)}%</div>
                             <div>KPM: {myResult.kpm.toFixed(1)}</div>
-                            <div>難易度別DB順位: {myResult.dbRank ? `${myResult.dbRank}位` : '計算中'}</div>
+                            <div>難易度別順位: {myResult.dbRank ? `${myResult.dbRank}位` : '計算中'}</div>
                         </div>
                     </div>
                 )}
