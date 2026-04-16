@@ -55,9 +55,9 @@ export const metadata: Metadata = {
         images: ['/logo.svg'],
     },
     icons: {
-        icon: '/logo.svg',
-        shortcut: '/logo.svg',
-        apple: '/logo.svg',
+                icon: '/icon.png',
+                shortcut: '/icon.png',
+                apple: '/icon.png',
     },
       verification: {
     google: "cGfXYjAEI7nHnWbca1OtL2EO4M5eNlESFJ_G4DND6aQ",
