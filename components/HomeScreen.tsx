@@ -88,6 +88,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSe
                         <ActionButton
                             onClick={() => setShowDifficultySelect(true)}
                             icon={UserRound}
+                            size="lg"
                             className="bg-primary text-primary-foreground hover:bg-primary/90"
                         >
                             シングルプレイ
@@ -96,6 +97,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSe
                             onClick={onSelectMultiPlay}
                             variant="outline"
                             icon={Swords}
+                            size="lg"
                         >
                             マルチプレイ
                         </ActionButton>
@@ -131,6 +133,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSe
                                 onClick={() => onSelectSinglePlay(option.key, selectedMinutes)}
                                 variant="outline"
                                 icon={option.icon}
+                                size="lg"
                             >
                                 <span className="font-semibold text-xl">{option.label}</span>
                             </ActionButton>
@@ -139,6 +142,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectSinglePlay, onSe
                             onClick={() => setShowDifficultySelect(false)}
                             variant="ghost"
                             icon={ChevronLeft}
+                            size="lg"
                         >
                             戻る
                         </ActionButton>

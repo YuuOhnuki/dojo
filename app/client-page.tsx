@@ -32,7 +32,7 @@ export const ClientPage: React.FC<ClientPageProps> = ({ appVersion }) => {
     };
 
     return (
-        <main className="min-h-screen">
+        <main className="h-dvh overflow-hidden">
             {currentScreen === 'home' && (
                 <HomeScreen
                     onSelectSinglePlay={handleSelectSinglePlay}

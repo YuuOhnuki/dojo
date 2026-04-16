@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { InputState } from '@/types/typing';
 import { createTypingSoundPlayer } from '@/lib/typing-audio';
 import { romajiEngine } from '@/utils/romajiEngine';
@@ -29,9 +30,13 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
     const [japaneseProgress, setJapaneseProgress] = useState<number>(0);
     const [typedHistory, setTypedHistory] = useState<Array<{ char: string; correct: boolean }>>([]);
     const [lastError, setLastError] = useState<boolean>(false);
+    const [isErrorToastVisible, setIsErrorToastVisible] = useState<boolean>(false);
+    const [isErrorToastFading, setIsErrorToastFading] = useState<boolean>(false);
 
     const inputRef = useRef<HTMLInputElement>(null);
     const soundPlayerRef = useRef(createTypingSoundPlayer());
+    const errorToastFadeTimerRef = useRef<number | null>(null);
+    const errorToastHideTimerRef = useRef<number | null>(null);
 
     const accentColorMap: Record<string, string> = {
         emerald: '#10b981',
@@ -66,6 +71,27 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
         },
         [romajiCandidates],
     );
+
+    const triggerErrorToast = useCallback(() => {
+        if (errorToastFadeTimerRef.current) {
+            window.clearTimeout(errorToastFadeTimerRef.current);
+        }
+        if (errorToastHideTimerRef.current) {
+            window.clearTimeout(errorToastHideTimerRef.current);
+        }
+
+        setIsErrorToastVisible(true);
+        setIsErrorToastFading(false);
+
+        errorToastFadeTimerRef.current = window.setTimeout(() => {
+            setIsErrorToastFading(true);
+        }, 900);
+
+        errorToastHideTimerRef.current = window.setTimeout(() => {
+            setIsErrorToastVisible(false);
+            setIsErrorToastFading(false);
+        }, 1300);
+    }, []);
 
     const handleInputChange = useCallback(
         (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -115,6 +141,7 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
                     soundPlayerRef.current.playError();
                     setTypedHistory((prev) => [...prev, { char: inputChar, correct: false }]);
                     setLastError(true);
+                    triggerErrorToast();
                     onError?.(japaneseProgress);
                     setUserInput('');
                 }
@@ -130,12 +157,24 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
             pickCandidateForPrefix,
             targetText.length,
             typedRomaji,
+            triggerErrorToast,
             userInput,
         ],
     );
 
     useEffect(() => {
         inputRef.current?.focus();
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (errorToastFadeTimerRef.current) {
+                window.clearTimeout(errorToastFadeTimerRef.current);
+            }
+            if (errorToastHideTimerRef.current) {
+                window.clearTimeout(errorToastHideTimerRef.current);
+            }
+        };
     }, []);
 
     // クリック時に input に focus
@@ -160,11 +199,11 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
 
     return (
         <div
-            className="w-full max-w-2xl mx-auto px-4 py-8 focus-within:outline-none cursor-text animate-fade-up-soft"
+            className="w-full max-w-2xl mx-auto px-4 py-4 md:py-6 focus-within:outline-none cursor-text animate-fade-up-soft"
             onClick={handleContainerClick}
         >
-            <div className="text-center mb-12">
-                <div className="text-3xl md:text-4xl font-light leading-relaxed tracking-wide min-h-24 break-words whitespace-pre-wrap">
+            <div className="text-center mb-8">
+                <div className="text-2xl md:text-3xl font-light leading-relaxed tracking-wide min-h-20 break-words whitespace-pre-wrap">
                     {displayChars.map(({ char, index, isCorrect, isCurrent }) => (
                         <span
                             key={index}
@@ -182,9 +221,9 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
                 </div>
             </div>
 
-            <div className="text-center mb-8 min-h-12 flex flex-col items-center justify-center space-y-3">
+            <div className="text-center mb-6 min-h-10 flex flex-col items-center justify-center space-y-2">
                 <div className="text-sm text-muted-foreground uppercase tracking-[0.25em]">ローマ字全文</div>
-                <div className="text-2xl font-mono tracking-widest text-foreground break-words">
+                <div className="text-xl md:text-2xl font-mono tracking-wider text-foreground break-words">
                     {romajiTarget.split('').map((char: string, idx: number) => {
                         const isCompleted = idx < completedRomaji.length;
                         const isCurrent = idx === completedRomaji.length;
@@ -204,7 +243,7 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
                 </div>
             </div>
 
-            <div className="text-center mb-8 min-h-10">
+            <div className="text-center mb-6 min-h-9">
                 <div className={`text-lg font-mono tracking-wider ${lastError ? 'text-red-500' : 'text-muted-foreground'}`}>
                     {typedHistory.length > 0 ? (
                         typedHistory.slice(-20).map((item, idx: number) => (
@@ -231,7 +270,7 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
                 </div>
             </div>
 
-            <div className="text-center mb-6">
+            <div className="text-center mb-4">
                 <div className="text-sm text-muted-foreground tabular-nums">
                     {typedRomaji.length} / {targetText.length}
                 </div>
@@ -265,11 +304,18 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
                 </div>
             )}
 
-            {lastError && (
-                <div className="fixed bottom-2 left-4 rounded-xl border border-red-500/35 bg-red-500/15 px-4 py-2 text-red-700 shadow-sm backdrop-blur-md animate-soft-shake dark:text-red-200">
-                    誤字。もう一度入力してください。
-                </div>
-            )}
+            {typeof document !== 'undefined' &&
+                isErrorToastVisible &&
+                createPortal(
+                    <div
+                        className={`pointer-events-none fixed bottom-4 left-4 z-[9999] rounded-xl border border-red-500/35 bg-red-500/15 px-4 py-2 text-red-700 shadow-sm backdrop-blur-md transition-opacity duration-300 dark:text-red-200 md:bottom-5 md:left-5 ${
+                            isErrorToastFading ? 'opacity-0' : 'opacity-100'
+                        }`}
+                    >
+                        誤字です。再度入力してください。
+                    </div>,
+                    document.body,
+                )}
         </div>
     );
 };

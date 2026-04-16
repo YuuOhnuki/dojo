@@ -18,7 +18,7 @@ export function ActionButton({
     iconPosition = 'start',
     fullWidth = true,
     className,
-    size = 'lg',
+    size = 'default',
     children,
     ...props
 }: ActionButtonProps) {
@@ -42,7 +42,7 @@ interface ActionButtonRowProps extends React.HTMLAttributes<HTMLDivElement> {
 export function ActionButtonRow({ className, cols = 1, ...props }: ActionButtonRowProps) {
     return (
         <div
-            className={cn('grid gap-3', cols === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1', className)}
+            className={cn('grid gap-2', cols === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1', className)}
             {...props}
         />
     );

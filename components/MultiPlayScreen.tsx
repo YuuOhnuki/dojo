@@ -394,10 +394,10 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
     if (mode === 'menu') {
         return (
-            <div className="min-h-screen flex items-center justify-center px-4">
-                <div className="surface-card w-full max-w-xl p-6 space-y-5">
+            <div className="h-dvh flex items-center justify-center px-4 py-3 overflow-hidden">
+                <div className="surface-card w-full max-w-xl p-5 space-y-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-light">マルチプレイ</h2>
+                        <h2 className="text-xl md:text-2xl font-light">マルチプレイ</h2>
                         <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                             <span>サーバー</span>
                             <span
@@ -432,7 +432,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                         </Button>
                     </div>
                     {menuView === 'create' && (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             <div className="space-y-2">
                                 <div className="text-sm text-muted-foreground">プレイヤー名</div>
                                 <input
@@ -462,7 +462,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
                                 <div className="space-y-2">
                                     <div className="text-sm text-muted-foreground">制限時間（分）</div>
-                                    <div className="surface-muted px-4 py-3">
+                                    <div className="surface-muted px-3 py-2.5">
                                         <input
                                             type="range"
                                             min={1}
@@ -498,7 +498,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                     )}
 
                     {menuView === 'join' && (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             <div className="space-y-2">
                                 <div className="text-sm text-muted-foreground">プレイヤー名</div>
                                 <input
@@ -523,15 +523,15 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                                         <InputOTPGroup className="gap-2">
                                             <InputOTPSlot
                                                 index={0}
-                                                className="h-12 w-12 rounded-md border border-border/75 bg-card/65 text-xl font-semibold shadow-sm first:border-l backdrop-blur-sm"
+                                                className="h-11 w-11 rounded-md border border-border/75 bg-card/65 text-lg font-semibold shadow-sm first:border-l backdrop-blur-sm"
                                             />
                                             <InputOTPSlot
                                                 index={1}
-                                                className="h-12 w-12 rounded-md border border-border/75 bg-card/65 text-xl font-semibold shadow-sm backdrop-blur-sm"
+                                                className="h-11 w-11 rounded-md border border-border/75 bg-card/65 text-lg font-semibold shadow-sm backdrop-blur-sm"
                                             />
                                             <InputOTPSlot
                                                 index={2}
-                                                className="h-12 w-12 rounded-md border border-border/75 bg-card/65 text-xl font-semibold shadow-sm backdrop-blur-sm"
+                                                className="h-11 w-11 rounded-md border border-border/75 bg-card/65 text-lg font-semibold shadow-sm backdrop-blur-sm"
                                             />
                                         </InputOTPGroup>
                                     </InputOTP>
@@ -559,13 +559,13 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
     if (mode === 'lobby') {
         return (
-            <div className="min-h-screen p-6">
-                <div className="surface-card max-w-3xl mx-auto p-6 space-y-5 animate-fade-up-soft">
+            <div className="h-dvh p-3 md:p-4 overflow-hidden">
+                <div className="surface-card max-w-3xl mx-auto h-full p-4 md:p-5 space-y-4 animate-fade-up-soft overflow-y-auto">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-light">ルーム待機中</h2>
+                        <h2 className="text-xl md:text-2xl font-light">ルーム待機中</h2>
                         <div className="text-sm text-muted-foreground">
                             ルームコード:
-                            <span className="ml-2 font-semibold text-xl tracking-widest">{currentRoomCode}</span>
+                            <span className="ml-2 font-semibold text-lg md:text-xl tracking-widest">{currentRoomCode}</span>
                         </div>
                     </div>
 
@@ -575,7 +575,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
                     <div className="space-y-2">
                         <div className="text-sm text-muted-foreground">参加者 ({ranking.length})</div>
-                        <div className="max-h-64 overflow-y-auto space-y-2">
+                        <div className="max-h-56 md:max-h-64 overflow-y-auto space-y-2">
                             {ranking.map((player, idx) => (
                                 <div
                                     key={player.playerId}
@@ -616,7 +616,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                         </div>
                     </div>
 
-                    <div className="surface-muted p-4 space-y-3">
+                    <div className="surface-muted p-3.5 space-y-3">
                         <div className="text-sm text-muted-foreground">ロビー設定</div>
                         <div className="grid gap-3 md:grid-cols-2">
                             <div className="space-y-2">
@@ -636,7 +636,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             </div>
                             <div className="space-y-2">
                                 <div className="text-xs text-muted-foreground">制限時間（分）</div>
-                                <div className="surface-muted px-4 py-3">
+                                <div className="surface-muted px-3 py-2.5">
                                     <input
                                         type="range"
                                         min={1}
@@ -687,14 +687,14 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
     if (mode === 'playing' && question) {
         return (
-            <div className="min-h-screen p-4 md:p-8 animate-fade-up-soft">
-                <div className="max-w-5xl mx-auto space-y-6">
+            <div className="h-dvh p-3 md:p-4 overflow-hidden animate-fade-up-soft">
+                <div className="max-w-5xl mx-auto h-full space-y-4 overflow-y-auto">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-3xl font-light">マルチプレイレース</h2>
+                            <h2 className="text-2xl md:text-3xl font-light">マルチプレイレース</h2>
                             <div className="text-sm text-muted-foreground">
                                 ルームコード:
-                                <span className="ml-2 font-semibold text-xl tracking-widest">{currentRoomCode}</span>
+                                <span className="ml-2 font-semibold text-lg md:text-xl tracking-widest">{currentRoomCode}</span>
                             </div>
                         </div>
                         <ActionButton onClick={onBackToHome} variant="outline" className="w-auto" icon={Home}>
@@ -704,8 +704,8 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
                     <ProgressBar timeLimit={timeLimit} elapsedSeconds={elapsedTime} />
 
-                    <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
-                        <div className="surface-muted p-5">
+                    <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
+                        <div className="surface-muted p-4">
                             <TypingDisplay
                                 key={`${question.id}-${completedQuestionCount}`}
                                 japanese={question.japanese}
@@ -718,9 +718,9 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             />
                         </div>
 
-                        <div className="surface-card p-4 space-y-3">
+                        <div className="surface-card p-3.5 space-y-2.5">
                             <div className="text-sm text-muted-foreground">リアルタイム進捗 ({ranking.length})</div>
-                            <div className="max-h-96 overflow-y-auto space-y-3">
+                            <div className="max-h-72 md:max-h-80 overflow-y-auto space-y-2.5">
                                 {ranking.map((player, idx) => (
                                     <div
                                         key={player.playerId}
@@ -776,9 +776,9 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center px-4 animate-fade-up-soft">
-            <div className="surface-card w-full max-w-xl p-6 space-y-4">
-                <h2 className="text-2xl font-light">レース結果</h2>
+            <div className="h-dvh flex items-center justify-center px-4 py-3 overflow-hidden animate-fade-up-soft">
+            <div className="surface-card w-full max-w-xl p-5 space-y-3.5 overflow-y-auto">
+                <h2 className="text-xl md:text-2xl font-light">レース結果</h2>
                 <div className="space-y-2">
                     <div className="text-sm text-muted-foreground">ランキング ({ranking.length})</div>
                     <div className="max-h-64 overflow-y-auto space-y-2">

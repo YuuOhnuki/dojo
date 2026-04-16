@@ -197,8 +197,8 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBa
 
     if (!isPlaying || !currentQuestion) {
         return (
-            <div className="w-full h-screen flex flex-col items-center justify-center gap-6 animate-fade-up-soft">
-                <div className="surface-card w-full max-w-md px-6 py-5 text-center space-y-2">
+            <div className="w-full h-dvh flex flex-col items-center justify-center gap-4 px-4 py-3 animate-fade-up-soft">
+                <div className="surface-card w-full max-w-md px-5 py-4 text-center space-y-1.5">
                     <div className="text-sm text-muted-foreground tracking-wide">ゲーム設定</div>
                     <div className="text-lg text-foreground">
                         難易度: <span className="font-semibold">{difficultyLabelMap[difficulty] ?? difficulty}</span>
@@ -228,12 +228,12 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBa
     }
 
     return (
-        <div className="w-full h-screen flex flex-col animate-fade-up-soft">
-            <div className="flex-shrink-0 p-4 md:p-6 border-b border-border/70">
+        <div className="w-full h-dvh flex flex-col overflow-hidden animate-fade-up-soft">
+            <div className="flex-shrink-0 p-3 md:p-4 border-b border-border/70">
                 <div className="max-w-3xl mx-auto flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-light">タイピング練習</h1>
-                        <div className="text-sm text-muted-foreground">
+                        <h1 className="text-xl md:text-2xl font-light">タイピング練習</h1>
+                        <div className="text-xs md:text-sm text-muted-foreground">
                             難易度: {difficultyLabelMap[difficulty] ?? difficulty} / 制限時間: {gameDurationMinutes}分
                         </div>
                     </div>
@@ -249,7 +249,7 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBa
                 </div>
             </div>
 
-            <div className="flex-shrink-0 p-2 md:p-4">
+            <div className="flex-shrink-0 p-2 md:p-3">
                 <div className="max-w-3xl mx-auto">
                     <ProgressBar timeLimit={timeLimit} elapsedSeconds={elapsedTime} />
                 </div>
@@ -270,20 +270,20 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBa
                 </div>
             </div>
 
-            <div className="flex-shrink-0 p-2 md:p-4 border-t border-border/70">
+            <div className="flex-shrink-0 p-2 md:p-3 border-t border-border/70">
                 <div className="max-w-3xl mx-auto">
-                    <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="grid grid-cols-3 gap-3 text-center">
                         <div className="space-y-1">
-                            <div className="text-sm text-muted-foreground">正解数</div>
-                            <div className={`text-xl font-bold text-${accentColor}-500`}>{correctCount}</div>
+                            <div className="text-xs md:text-sm text-muted-foreground">正解数</div>
+                            <div className={`text-lg md:text-xl font-bold text-${accentColor}-500`}>{correctCount}</div>
                         </div>
                         <div className="space-y-1">
-                            <div className="text-sm text-muted-foreground">正タイプ数</div>
-                            <div className="text-xl font-bold text-foreground">{totalInputCount}</div>
+                            <div className="text-xs md:text-sm text-muted-foreground">正タイプ数</div>
+                            <div className="text-lg md:text-xl font-bold text-foreground">{totalInputCount}</div>
                         </div>
                         <div className="space-y-1">
-                            <div className="text-sm text-muted-foreground">誤タイプ数</div>
-                            <div className="text-xl font-bold text-red-500">{errorCount}</div>
+                            <div className="text-xs md:text-sm text-muted-foreground">誤タイプ数</div>
+                            <div className="text-lg md:text-xl font-bold text-red-500">{errorCount}</div>
                         </div>
                     </div>
                 </div>
