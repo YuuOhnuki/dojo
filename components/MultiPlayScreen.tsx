@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { ActionButton, ActionButtonRow } from '@/components/ui/action-button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Difficulty, Question } from '@/types/typing';
+import { useCountdown } from '@/lib/use-countdown';
 import {
     GameCountdownPayload,
     GameStartedPayload,
@@ -134,6 +135,29 @@ const isTypingElement = (target: EventTarget | null): boolean => {
     );
 };
 
+const emitRoomAction = <TResponse extends RoomActionAck, TPayload>(
+    ensureSocket: () => Socket,
+    setErrorMessage: (message: string) => void,
+    eventName: string,
+    payload: TPayload,
+    fallbackMessage: string,
+    onSuccess?: (response: TResponse) => void,
+    onFailure?: (message: string) => void,
+) => {
+    setErrorMessage('');
+    const socket = ensureSocket();
+    socket.emit(eventName, payload, (response: TResponse) => {
+        if (!response.ok) {
+            const message = response.message ?? fallbackMessage;
+            setErrorMessage(message);
+            onFailure?.(message);
+            return;
+        }
+
+        onSuccess?.(response);
+    });
+};
+
 export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBackToHome }) => {
     const socketRef = useRef<Socket | null>(null);
     const [mode, setMode] = useState<Mode>('menu');
@@ -158,7 +182,6 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     const [elapsedTime, setElapsedTime] = useState(0);
     const [gameStartedAt, setGameStartedAt] = useState<number | null>(null);
     const [countdownTargetAt, setCountdownTargetAt] = useState<number | null>(null);
-    const [countdownSecondsLeft, setCountdownSecondsLeft] = useState<number | null>(null);
     const [correctCount, setCorrectCount] = useState(0);
     const [totalInputCount, setTotalInputCount] = useState(0);
     const [errorCount, setErrorCount] = useState(0);
@@ -178,6 +201,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
     const isHost = roomState?.hostPlayerId === playerId;
     const currentRoomCode = roomState?.roomCode ?? '';
+    const countdownSecondsLeft = useCountdown({ targetAt: countdownTargetAt });
 
     const ensureSocket = useCallback(() => {
         if (socketRef.current) return socketRef.current;
@@ -240,19 +264,16 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
             setIsChatOpen(false);
             setLastReadChatMessageId(null);
             setCountdownTargetAt(null);
-            setCountdownSecondsLeft(null);
             setErrorMessage('ホストによりルームから退出されました。');
         });
 
         socket.on('game:countdown', (payload: GameCountdownPayload) => {
             setCountdownTargetAt(payload.startsAt);
-            setCountdownSecondsLeft(Math.max(payload.seconds, 1));
             setMode('lobby');
         });
 
         socket.on('game:started', (payload: GameStartedPayload) => {
             setCountdownTargetAt(null);
-            setCountdownSecondsLeft(null);
             setQuestion(payload.question);
             setTimeLimit(payload.timeLimitSeconds);
             setElapsedTime(0);
@@ -281,19 +302,6 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
             socket.off('room:kicked');
         };
     }, [ensureSocket, lastReadChatMessageId]);
-
-    useEffect(() => {
-        if (countdownTargetAt === null) return;
-
-        const updateCountdown = () => {
-            const remaining = Math.max(0, Math.ceil((countdownTargetAt - Date.now()) / 1000));
-            setCountdownSecondsLeft(remaining);
-        };
-
-        updateCountdown();
-        const interval = setInterval(updateCountdown, 100);
-        return () => clearInterval(interval);
-    }, [countdownTargetAt]);
 
     useEffect(() => {
         if (mode !== 'playing' || gameStartedAt === null) return;
@@ -360,20 +368,17 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     }, [mode, roomState?.chatMessages]);
 
     const createRoom = useCallback(() => {
-        setErrorMessage('');
-        const socket = ensureSocket();
         const safePlayerName = normalizePlayerName(playerName, DEFAULT_HOST_NAME);
-        socket.emit(
+        emitRoomAction<JoinCreateAck, { playerName: string; isPublic: boolean }>(
+            ensureSocket,
+            setErrorMessage,
             'room:create',
             {
                 playerName: safePlayerName,
                 isPublic: isPublicRoom,
             },
-            (response: JoinCreateAck) => {
-                if (!response.ok) {
-                    setErrorMessage(response.message ?? 'ルーム作成に失敗しました。');
-                    return;
-                }
+            'ルーム作成に失敗しました。',
+            (response) => {
                 setPlayerId(response.playerId ?? '');
                 setQuestion(response.question ?? null);
                 setMode('lobby');
@@ -384,43 +389,44 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
     const fetchPublicRooms = useCallback(() => {
         setIsLoadingPublicRooms(true);
-        setErrorMessage('');
-        const socket = ensureSocket();
-        socket.emit('room:list-public', {}, (response: PublicRoomsAck) => {
-            setIsLoadingPublicRooms(false);
-            if (!response.ok) {
-                setErrorMessage(response.message ?? '公開ルームの取得に失敗しました。');
-                return;
-            }
-            const nextRooms = response.rooms ?? [];
-            setPublicRooms(nextRooms);
-            if (selectedPublicRoomCode && !nextRooms.some((room) => room.roomCode === selectedPublicRoomCode)) {
-                setSelectedPublicRoomCode('');
-            }
-        });
+        emitRoomAction<PublicRoomsAck, Record<string, never>>(
+            ensureSocket,
+            setErrorMessage,
+            'room:list-public',
+            {},
+            '公開ルームの取得に失敗しました。',
+            (response) => {
+                const nextRooms = response.rooms ?? [];
+                setPublicRooms(nextRooms);
+                if (selectedPublicRoomCode && !nextRooms.some((room) => room.roomCode === selectedPublicRoomCode)) {
+                    setSelectedPublicRoomCode('');
+                }
+                setIsLoadingPublicRooms(false);
+            },
+            () => {
+                setIsLoadingPublicRooms(false);
+            },
+        );
     }, [ensureSocket, selectedPublicRoomCode]);
 
     const joinRoom = useCallback(() => {
-        setErrorMessage('');
         const normalizedRoomCode = roomCodeInput;
         if (normalizedRoomCode.length !== ROOM_CODE_LENGTH) {
             setErrorMessage('ルームコードは3桁の数字で入力してください。');
             return;
         }
 
-        const socket = ensureSocket();
         const safePlayerName = normalizePlayerName(playerName, DEFAULT_PLAYER_NAME);
-        socket.emit(
+        emitRoomAction<JoinCreateAck, { roomCode: string; playerName: string }>(
+            ensureSocket,
+            setErrorMessage,
             'room:join',
             {
                 roomCode: normalizedRoomCode,
                 playerName: safePlayerName,
             },
-            (response: JoinCreateAck) => {
-                if (!response.ok) {
-                    setErrorMessage(response.message ?? '入室に失敗しました。');
-                    return;
-                }
+            '入室に失敗しました。',
+            (response) => {
                 setPlayerId(response.playerId ?? '');
                 setQuestion(response.question ?? null);
                 setMode('lobby');
@@ -432,24 +438,23 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     const joinPublicRoom = useCallback(
         (roomCode: string) => {
             setRoomCodeInput(roomCode);
-            setErrorMessage('');
-            const socket = ensureSocket();
             const safePlayerName = normalizePlayerName(playerName, DEFAULT_PLAYER_NAME);
-            socket.emit(
+            emitRoomAction<JoinCreateAck, { roomCode: string; playerName: string }>(
+                ensureSocket,
+                setErrorMessage,
                 'room:join',
                 {
                     roomCode,
                     playerName: safePlayerName,
                 },
-                (response: JoinCreateAck) => {
-                    if (!response.ok) {
-                        setErrorMessage(response.message ?? '入室に失敗しました。');
-                        fetchPublicRooms();
-                        return;
-                    }
+                '入室に失敗しました。',
+                (response) => {
                     setPlayerId(response.playerId ?? '');
                     setQuestion(response.question ?? null);
                     setMode('lobby');
+                },
+                () => {
+                    fetchPublicRooms();
                 },
             );
         },
@@ -458,20 +463,23 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
     const startRace = useCallback(() => {
         if (!roomState) return;
-        setErrorMessage('');
-        const socket = ensureSocket();
-        socket.emit('room:start', { roomCode: roomState.roomCode }, (response: RoomActionAck) => {
-            if (!response.ok) {
-                setErrorMessage(response.message ?? '開始に失敗しました。');
-            }
-        });
+        emitRoomAction(ensureSocket, setErrorMessage, 'room:start', { roomCode: roomState.roomCode }, '開始に失敗しました。');
     }, [ensureSocket, roomState]);
 
     const updateLobbySettings = useCallback(() => {
         if (!roomState) return;
-        setErrorMessage('');
-        const socket = ensureSocket();
-        socket.emit(
+        emitRoomAction<UpdateSettingsAck, {
+            roomCode: string;
+            difficulty: Difficulty;
+            minutes: number;
+            maxPlayers: number;
+            isPublic: boolean;
+            autoStart: boolean;
+            teamMode: TeamMode;
+            scoreMode: ScoreMode;
+        }>(
+            ensureSocket,
+            setErrorMessage,
             'room:update-settings',
             {
                 roomCode: roomState.roomCode,
@@ -483,11 +491,8 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                 teamMode,
                 scoreMode,
             },
-            (response: UpdateSettingsAck) => {
-                if (!response.ok) {
-                    setErrorMessage(response.message ?? '設定更新に失敗しました。');
-                    return;
-                }
+            '設定更新に失敗しました。',
+            (response) => {
                 if (response.question) {
                     setQuestion(response.question);
                 }
@@ -500,19 +505,16 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
         const normalizedContent = chatInput.trim();
         if (!normalizedContent) return;
 
-        setErrorMessage('');
-        const socket = ensureSocket();
-        socket.emit(
+        emitRoomAction<ChatMessageAck, { roomCode: string; content: string }>(
+            ensureSocket,
+            setErrorMessage,
             'room:chat',
             {
                 roomCode: roomState.roomCode,
                 content: normalizedContent,
             },
-            (response: ChatMessageAck) => {
-                if (!response.ok) {
-                    setErrorMessage(response.message ?? 'チャットの送信に失敗しました。');
-                    return;
-                }
+            'チャットの送信に失敗しました。',
+            () => {
                 setChatInput('');
             },
         );
@@ -521,19 +523,15 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     const setReady = useCallback(
         (nextReady: boolean) => {
             if (!roomState) return;
-            setErrorMessage('');
-            const socket = ensureSocket();
-            socket.emit(
+            emitRoomAction<RoomActionAck, { roomCode: string; isReady: boolean }>(
+                ensureSocket,
+                setErrorMessage,
                 'room:set-ready',
                 {
                     roomCode: roomState.roomCode,
                     isReady: nextReady,
                 },
-                (response: RoomActionAck) => {
-                    if (!response.ok) {
-                        setErrorMessage(response.message ?? '準備状態の更新に失敗しました。');
-                    }
-                },
+                '準備状態の更新に失敗しました。',
             );
         },
         [ensureSocket, roomState],
@@ -542,20 +540,16 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     const setPlayerTeam = useCallback(
         (targetPlayerId: string, nextTeam: 'A' | 'B') => {
             if (!roomState) return;
-            setErrorMessage('');
-            const socket = ensureSocket();
-            socket.emit(
+            emitRoomAction<RoomActionAck, { roomCode: string; targetPlayerId: string; teamId: 'A' | 'B' }>(
+                ensureSocket,
+                setErrorMessage,
                 'room:set-team',
                 {
                     roomCode: roomState.roomCode,
                     targetPlayerId,
                     teamId: nextTeam,
                 },
-                (response: RoomActionAck) => {
-                    if (!response.ok) {
-                        setErrorMessage(response.message ?? 'チーム変更に失敗しました。');
-                    }
-                },
+                'チーム変更に失敗しました。',
             );
         },
         [ensureSocket, roomState],
@@ -564,19 +558,15 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     const transferHost = useCallback(
         (targetPlayerId: string) => {
             if (!roomState) return;
-            setErrorMessage('');
-            const socket = ensureSocket();
-            socket.emit(
+            emitRoomAction<RoomActionAck, { roomCode: string; targetPlayerId: string }>(
+                ensureSocket,
+                setErrorMessage,
                 'room:transfer-host',
                 {
                     roomCode: roomState.roomCode,
                     targetPlayerId,
                 },
-                (response: RoomActionAck) => {
-                    if (!response.ok) {
-                        setErrorMessage(response.message ?? 'ホスト権限譲渡に失敗しました。');
-                    }
-                },
+                'ホスト権限譲渡に失敗しました。',
             );
         },
         [ensureSocket, roomState],
@@ -585,19 +575,15 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     const kickPlayer = useCallback(
         (targetPlayerId: string) => {
             if (!roomState) return;
-            setErrorMessage('');
-            const socket = ensureSocket();
-            socket.emit(
+            emitRoomAction<RoomActionAck, { roomCode: string; targetPlayerId: string }>(
+                ensureSocket,
+                setErrorMessage,
                 'room:kick',
                 {
                     roomCode: roomState.roomCode,
                     targetPlayerId,
                 },
-                (response: RoomActionAck) => {
-                    if (!response.ok) {
-                        setErrorMessage(response.message ?? 'キックに失敗しました。');
-                    }
-                },
+                'キックに失敗しました。',
             );
         },
         [ensureSocket, roomState],
@@ -605,39 +591,37 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
     const reopenLobby = useCallback(() => {
         if (!roomState) return;
-        setErrorMessage('');
-        const socket = ensureSocket();
-        socket.emit('room:reopen', { roomCode: roomState.roomCode }, (response: UpdateSettingsAck) => {
-            if (!response.ok) {
-                setErrorMessage(response.message ?? 'ロビーに戻せませんでした。');
-                return;
-            }
-            if (response.question) {
-                setQuestion(response.question);
-            }
-            setStayInRoom(false);
-        });
+        emitRoomAction<UpdateSettingsAck, { roomCode: string }>(
+            ensureSocket,
+            setErrorMessage,
+            'room:reopen',
+            { roomCode: roomState.roomCode },
+            'ロビーに戻せませんでした。',
+            (response: UpdateSettingsAck) => {
+                if (response.question) {
+                    setQuestion(response.question);
+                }
+                setStayInRoom(false);
+            },
+        );
     }, [ensureSocket, roomState]);
 
     const updatePlayerNameInRoom = useCallback(() => {
         if (!roomState) return;
-        setErrorMessage('');
-        const socket = ensureSocket();
         const me = roomState.players.find((player) => player.playerId === playerId);
         const fallbackName = me?.name || DEFAULT_PLAYER_NAME;
         const safePlayerName = normalizePlayerName(playerName, fallbackName);
 
-        socket.emit(
+        emitRoomAction<UpdatePlayerNameAck, { roomCode: string; playerName: string }>(
+            ensureSocket,
+            setErrorMessage,
             'room:update-name',
             {
                 roomCode: roomState.roomCode,
                 playerName: safePlayerName,
             },
+            'ユーザー名の更新に失敗しました。',
             (response: UpdatePlayerNameAck) => {
-                if (!response.ok) {
-                    setErrorMessage(response.message ?? 'ユーザー名の更新に失敗しました。');
-                    return;
-                }
                 setPlayerName(response.playerName ?? safePlayerName);
             },
         );

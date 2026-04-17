@@ -9,6 +9,7 @@ import { ActionButton, ActionButtonRow } from '@/components/ui/action-button';
 import { Progress } from '@/components/ui/progress';
 import { useGameStore } from '@/store/gameStore';
 import { Difficulty, DifficultyLeaderboardEntry, GameResult, Question } from '@/types/typing';
+import { useCountdown } from '@/lib/use-countdown';
 import questionsData from '@/data/questions.json';
 
 const SINGLE_START_COUNTDOWN_SECONDS = 3;
@@ -52,7 +53,6 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
     const [savePlayerNameError, setSavePlayerNameError] = useState('');
     const [timeLimit, setTimeLimit] = useState(60);
     const [startCountdownTargetAt, setStartCountdownTargetAt] = useState<number | null>(null);
-    const [startCountdownSecondsLeft, setStartCountdownSecondsLeft] = useState<number | null>(null);
     const [elapsedTime, setElapsedTime] = useState(0);
     const [gameStartedAt, setGameStartedAt] = useState<number | null>(null);
     const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -181,7 +181,6 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
         setTimeLimit(gameDurationMinutes * 60);
         setElapsedTime(0);
         setStartCountdownTargetAt(null);
-        setStartCountdownSecondsLeft(null);
         const startedAt = Date.now();
         setGameStartedAt(startedAt);
 
@@ -220,10 +219,17 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
         startGame(difficulty, question);
     }, [calculateQuestionTimeLimit, difficulty, gameDurationMinutes, getRandomQuestion, startGame]);
 
+    const startCountdownSecondsLeft = useCountdown({
+        targetAt: startCountdownTargetAt,
+        onComplete: () => {
+            setStartCountdownTargetAt(null);
+            startSingleGameNow();
+        },
+    });
+
     const handleStartGame = useCallback(() => {
         const targetAt = Date.now() + SINGLE_START_COUNTDOWN_SECONDS * 1000;
         setStartCountdownTargetAt(targetAt);
-        setStartCountdownSecondsLeft(SINGLE_START_COUNTDOWN_SECONDS);
     }, []);
 
     const moveToNextQuestion = useCallback(
@@ -472,7 +478,6 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
         setIsPlayerNameSaved(false);
         setSavePlayerNameError('');
         setStartCountdownTargetAt(null);
-        setStartCountdownSecondsLeft(null);
         setCurrentQuestion(null);
         if (onBackToDifficultySelect) {
             onBackToDifficultySelect();
@@ -549,24 +554,6 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
     ]);
 
     useEffect(() => {
-        if (startCountdownTargetAt === null) return;
-
-        const updateCountdown = () => {
-            const remaining = Math.max(0, Math.ceil((startCountdownTargetAt - Date.now()) / 1000));
-            setStartCountdownSecondsLeft(remaining);
-            if (remaining <= 0) {
-                setStartCountdownTargetAt(null);
-                setStartCountdownSecondsLeft(null);
-                startSingleGameNow();
-            }
-        };
-
-        updateCountdown();
-        const interval = setInterval(updateCountdown, 100);
-        return () => clearInterval(interval);
-    }, [startCountdownTargetAt, startSingleGameNow]);
-
-    useEffect(() => {
         return () => {
             if (phaseToastTimerRef.current) {
                 window.clearTimeout(phaseToastTimerRef.current);
@@ -585,14 +572,6 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [handleBackToMenu]);
-
-    // 状態の初期化は useState の初期値で行い、ゲーム開始はボタンクリック時に実行
-    useEffect(() => {
-        // 現在のセッションが存在しない場合のリセット処理
-        if (!isPlaying && gameResult === null) {
-            // 初期化処理（必要に応じて）
-        }
-    }, [isPlaying, gameResult]);
 
     if (showResult && gameResult) {
         return (
