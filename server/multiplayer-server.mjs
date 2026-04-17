@@ -18,19 +18,23 @@ const GAME_START_COUNTDOWN_SECONDS = 3;
 const GAME_START_COUNTDOWN_MS = GAME_START_COUNTDOWN_SECONDS * 1000;
 
 function loadLocalEnv() {
-    const envPath = path.join(process.cwd(), '.env');
-    if (!fs.existsSync(envPath)) return;
+    const candidates = ['.env.local', '.env.development.local', '.env.production.local', '.env'];
 
-    const lines = fs.readFileSync(envPath, 'utf-8').split(/\r?\n/);
-    for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const separatorIndex = trimmed.indexOf('=');
-        if (separatorIndex <= 0) continue;
-        const key = trimmed.slice(0, separatorIndex).trim();
-        if (!key || process.env[key] !== undefined) continue;
-        const value = trimmed.slice(separatorIndex + 1).trim();
-        process.env[key] = value;
+    for (const fileName of candidates) {
+        const envPath = path.join(process.cwd(), fileName);
+        if (!fs.existsSync(envPath)) continue;
+
+        const lines = fs.readFileSync(envPath, 'utf-8').split(/\r?\n/);
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+            const separatorIndex = trimmed.indexOf('=');
+            if (separatorIndex <= 0) continue;
+            const key = trimmed.slice(0, separatorIndex).trim();
+            if (!key || process.env[key] !== undefined) continue;
+            const value = trimmed.slice(separatorIndex + 1).trim();
+            process.env[key] = value;
+        }
     }
 }
 
@@ -560,9 +564,19 @@ async function persistMultiplayerResult(room, player, multiplayerRank) {
             'write',
         );
 
-        const insertedRow = await tursoClient.execute({ sql: 'SELECT last_insert_rowid() AS id' });
+        const insertedRow = await tursoClient.execute({
+            sql: `
+                SELECT id
+                FROM game_results
+                WHERE session_id = ? AND player_id = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+            `,
+            args: [sessionId, player.playerId],
+        });
         const insertedId = Number(insertedRow.rows[0]?.id ?? 0);
-        const rankRow = await tursoClient.execute({
+        const rankRow = insertedId > 0
+            ? await tursoClient.execute({
             sql: `
                 WITH ranked AS (
                     SELECT
@@ -585,9 +599,11 @@ async function persistMultiplayerResult(room, player, multiplayerRank) {
                 WHERE id = ?
             `,
             args: [room.difficulty, insertedId],
-        });
+            })
+            : { rows: [] };
 
-        player.dbRank = Number(rankRow.rows[0]?.rank ?? 0);
+        const computedRank = Number(rankRow.rows[0]?.rank ?? 0);
+        player.dbRank = computedRank > 0 ? computedRank : (multiplayerRank ?? null);
         player.persistedToDb = true;
     } catch (error) {
         console.error('[multiplayer][db] failed to persist result', error);
@@ -870,6 +886,30 @@ io.on('connection', (socket) => {
 
         emitRoomState(normalizedCode);
         ack?.({ ok: true });
+    });
+
+    socket.on('room:update-name', ({ roomCode, playerName }, ack) => {
+        const normalizedCode = normalizeRoomCode(roomCode);
+        if (normalizedCode !== socket.data.roomCode) {
+            ack?.({ ok: false, message: 'ルームに参加していません。' });
+            return;
+        }
+
+        const room = rooms.get(normalizedCode);
+        if (!room) {
+            ack?.({ ok: false, message: 'ルームが見つかりません。' });
+            return;
+        }
+
+        const player = room.players.get(socket.id);
+        if (!player) {
+            ack?.({ ok: false, message: '参加プレイヤーではありません。' });
+            return;
+        }
+
+        player.name = sanitizePlayerName(playerName, player.name || 'Player');
+        emitRoomState(normalizedCode);
+        ack?.({ ok: true, playerName: player.name });
     });
 
     socket.on('room:start', ({ roomCode }, ack) => {

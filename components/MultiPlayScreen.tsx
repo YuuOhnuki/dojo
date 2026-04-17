@@ -80,6 +80,10 @@ interface ChatMessageAck extends RoomActionAck {
     message?: string;
 }
 
+interface UpdatePlayerNameAck extends RoomActionAck {
+    playerName?: string;
+}
+
 /**
  * ルームコード入力を 3 桁数字に正規化する。
  */
@@ -615,6 +619,30 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
         });
     }, [ensureSocket, roomState]);
 
+    const updatePlayerNameInRoom = useCallback(() => {
+        if (!roomState) return;
+        setErrorMessage('');
+        const socket = ensureSocket();
+        const me = roomState.players.find((player) => player.playerId === playerId);
+        const fallbackName = me?.name || DEFAULT_PLAYER_NAME;
+        const safePlayerName = normalizePlayerName(playerName, fallbackName);
+
+        socket.emit(
+            'room:update-name',
+            {
+                roomCode: roomState.roomCode,
+                playerName: safePlayerName,
+            },
+            (response: UpdatePlayerNameAck) => {
+                if (!response.ok) {
+                    setErrorMessage(response.message ?? 'ユーザー名の更新に失敗しました。');
+                    return;
+                }
+                setPlayerName(response.playerName ?? safePlayerName);
+            },
+        );
+    }, [ensureSocket, playerId, playerName, roomState]);
+
     const handleProgress = useCallback(
         (state: { currentIndex: number }) => {
             if (!roomState) return;
@@ -1035,6 +1063,22 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             : 'ホストの開始を待っています。準備完了ボタンを押してください。'}
                     </div>
 
+                    <div className="surface-muted p-3 space-y-2">
+                        <div className="text-xs text-muted-foreground">ユーザー名（ルーム参加中でも変更可能）</div>
+                        <div className="flex gap-2">
+                            <input
+                                value={playerName}
+                                onChange={(event) => setPlayerName(event.target.value)}
+                                className="surface-input w-full px-3 py-2"
+                                placeholder="名前を入力"
+                                maxLength={16}
+                            />
+                            <Button type="button" variant="outline" onClick={updatePlayerNameInRoom}>
+                                反映
+                            </Button>
+                        </div>
+                    </div>
+
                     {countdownSecondsLeft !== null && (
                         <div className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
                             ゲーム開始まで {countdownSecondsLeft}...
@@ -1408,7 +1452,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
         return (
             <div className="h-dvh p-3 md:p-4 overflow-hidden animate-fade-up-soft">
                 <div className="max-w-5xl mx-auto h-full space-y-4 overflow-y-auto">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>
                             <h2 className="text-2xl md:text-3xl font-light">マルチプレイレース</h2>
                             <div className="text-sm text-muted-foreground">
@@ -1416,9 +1460,23 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                                 <span className="ml-2 font-semibold text-lg md:text-xl tracking-widest">{currentRoomCode}</span>
                             </div>
                         </div>
-                        <ActionButton onClick={onBackToHome} variant="outline" className="w-auto" icon={Home}>
-                            退出
-                        </ActionButton>
+                        <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
+                            <div className="flex gap-2 md:max-w-sm">
+                                <input
+                                    value={playerName}
+                                    onChange={(event) => setPlayerName(event.target.value)}
+                                    className="surface-input w-full md:w-48 px-3 py-2"
+                                    placeholder="名前を入力"
+                                    maxLength={16}
+                                />
+                                <Button type="button" variant="outline" onClick={updatePlayerNameInRoom}>
+                                    反映
+                                </Button>
+                            </div>
+                            <ActionButton onClick={onBackToHome} variant="outline" className="w-auto" icon={Home}>
+                                退出
+                            </ActionButton>
+                        </div>
                     </div>
 
                     <ProgressBar timeLimit={timeLimit} elapsedSeconds={elapsedTime} />
@@ -1557,10 +1615,28 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             <div>誤タイプ数: {myResult.errorCount}</div>
                             <div>正解率: {myResult.correctRate.toFixed(1)}%</div>
                             <div>KPM: {myResult.kpm.toFixed(1)}</div>
-                            <div>難易度別順位: {myResult.dbRank ? `${myResult.dbRank}位` : '計算中'}</div>
+                            <div>
+                                難易度別順位: {typeof myResult.dbRank === 'number' && myResult.dbRank > 0 ? `${myResult.dbRank}位` : '計算中'}
+                            </div>
                         </div>
                     </div>
                 )}
+
+                <div className="surface-muted p-3 space-y-2">
+                    <div className="text-xs text-muted-foreground">ユーザー名（ルーム参加中でも変更可能）</div>
+                    <div className="flex gap-2">
+                        <input
+                            value={playerName}
+                            onChange={(event) => setPlayerName(event.target.value)}
+                            className="surface-input w-full px-3 py-2"
+                            placeholder="名前を入力"
+                            maxLength={16}
+                        />
+                        <Button type="button" variant="outline" onClick={updatePlayerNameInRoom}>
+                            反映
+                        </Button>
+                    </div>
+                </div>
 
                 <ActionButtonRow cols={2}>
                     <ActionButton

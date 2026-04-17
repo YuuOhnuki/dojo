@@ -21,10 +21,12 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBackToHo
     const [entries, setEntries] = React.useState<DifficultyLeaderboardEntry[]>([]);
     const [isLoading, setIsLoading] = React.useState(false);
     const [errorMessage, setErrorMessage] = React.useState('');
+    const [modeFilter, setModeFilter] = React.useState<'all' | 'single' | 'multi'>('all');
     const [sortBy, setSortBy] = React.useState<'correctCount' | 'kpm' | 'correctRate' | 'createdAt' | 'rank'>('correctCount');
     const [expandedKey, setExpandedKey] = React.useState<string | null>(null);
     const sortedEntries = React.useMemo(() => {
-        return [...entries].sort((a, b) => {
+        const filtered = entries.filter((entry) => modeFilter === 'all' || entry.mode === modeFilter);
+        return [...filtered].sort((a, b) => {
             const compare = (left: number, right: number) => {
                 if (left === right) return 0;
                 return left > right ? -1 : 1;
@@ -36,7 +38,17 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBackToHo
             if (sortBy === 'rank') return a.rank - b.rank;
             return compare(a.correctCount, b.correctCount) || a.rank - b.rank;
         });
-    }, [entries, sortBy]);
+    }, [entries, modeFilter, sortBy]);
+
+    const modeCounts = React.useMemo(() => {
+        const single = entries.filter((entry) => entry.mode === 'single').length;
+        const multi = entries.filter((entry) => entry.mode === 'multi').length;
+        return {
+            all: entries.length,
+            single,
+            multi,
+        };
+    }, [entries]);
 
     const formatCreatedAt = (unixSeconds: number) => {
         if (!Number.isFinite(unixSeconds) || unixSeconds <= 0) return '-';
@@ -137,6 +149,45 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBackToHo
 
                 <div className="grid grid-cols-1 gap-3">
                     <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">表示モード</div>
+                        <div className="surface-muted p-1 grid grid-cols-3 gap-1">
+                            <button
+                                type="button"
+                                onClick={() => setModeFilter('all')}
+                                className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                                    modeFilter === 'all'
+                                        ? 'bg-card text-foreground shadow-sm'
+                                        : 'text-muted-foreground hover:bg-card/60'
+                                }`}
+                            >
+                                すべて ({modeCounts.all})
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setModeFilter('single')}
+                                className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                                    modeFilter === 'single'
+                                        ? 'bg-card text-foreground shadow-sm'
+                                        : 'text-muted-foreground hover:bg-card/60'
+                                }`}
+                            >
+                                シングル ({modeCounts.single})
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setModeFilter('multi')}
+                                className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                                    modeFilter === 'multi'
+                                        ? 'bg-card text-foreground shadow-sm'
+                                        : 'text-muted-foreground hover:bg-card/60'
+                                }`}
+                            >
+                                マルチ ({modeCounts.multi})
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
                         <div className="text-xs text-muted-foreground">並び替え項目</div>
                         <select
                             value={sortBy}
@@ -192,6 +243,15 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBackToHo
                                         </span>
                                         {index + 1 <= 3 && <Crown className="size-4 text-yellow-500" />}
                                         <span className="font-medium">{entry.playerName}</span>
+                                        <span
+                                            className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                                                entry.mode === 'multi'
+                                                    ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300'
+                                                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                            }`}
+                                        >
+                                            {entry.mode === 'multi' ? 'マルチ' : 'シングル'}
+                                        </span>
                                     </div>
                                     <div className="text-xs md:text-sm text-muted-foreground text-right">
                                         {getSelectedMetricLabel(entry)}

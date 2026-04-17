@@ -11,11 +11,13 @@ import { useGameStore } from '@/store/gameStore';
 import { Difficulty, DifficultyLeaderboardEntry, GameResult, Question } from '@/types/typing';
 import questionsData from '@/data/questions.json';
 
+const SINGLE_START_COUNTDOWN_SECONDS = 3;
+
 const SURVIVAL_SETTINGS = {
     initialHp: 100,
     maxHp: 100,
     baseHpDrainPerSecond: 4,
-    hpDrainGrowthPerPhase: 0.5,
+    hpDrainGrowthPerPhase: 1,
     errorPenaltyHp: 2,
     timeoutPenaltyHp: 10,
     questionClearBonusHpByDifficulty: {
@@ -49,6 +51,8 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
     const [isPlayerNameSaved, setIsPlayerNameSaved] = useState(false);
     const [savePlayerNameError, setSavePlayerNameError] = useState('');
     const [timeLimit, setTimeLimit] = useState(60);
+    const [startCountdownTargetAt, setStartCountdownTargetAt] = useState<number | null>(null);
+    const [startCountdownSecondsLeft, setStartCountdownSecondsLeft] = useState<number | null>(null);
     const [elapsedTime, setElapsedTime] = useState(0);
     const [gameStartedAt, setGameStartedAt] = useState<number | null>(null);
     const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -173,9 +177,11 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
     /**
      * ゲーム開始処理
      */
-    const handleStartGame = useCallback(() => {
+    const startSingleGameNow = useCallback(() => {
         setTimeLimit(gameDurationMinutes * 60);
         setElapsedTime(0);
+        setStartCountdownTargetAt(null);
+        setStartCountdownSecondsLeft(null);
         const startedAt = Date.now();
         setGameStartedAt(startedAt);
 
@@ -213,6 +219,12 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
 
         startGame(difficulty, question);
     }, [calculateQuestionTimeLimit, difficulty, gameDurationMinutes, getRandomQuestion, startGame]);
+
+    const handleStartGame = useCallback(() => {
+        const targetAt = Date.now() + SINGLE_START_COUNTDOWN_SECONDS * 1000;
+        setStartCountdownTargetAt(targetAt);
+        setStartCountdownSecondsLeft(SINGLE_START_COUNTDOWN_SECONDS);
+    }, []);
 
     const moveToNextQuestion = useCallback(
         (reason: 'completed' | 'timeout') => {
@@ -459,6 +471,8 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
         setLeaderboard([]);
         setIsPlayerNameSaved(false);
         setSavePlayerNameError('');
+        setStartCountdownTargetAt(null);
+        setStartCountdownSecondsLeft(null);
         setCurrentQuestion(null);
         if (onBackToDifficultySelect) {
             onBackToDifficultySelect();
@@ -466,17 +480,6 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
         }
         onBackToHome?.();
     }, [onBackToDifficultySelect, onBackToHome, resetGame]);
-
-    const handleBackToHomeDirect = useCallback(() => {
-        resetGame();
-        setShowResult(false);
-        setGameResult(null);
-        setLeaderboard([]);
-        setIsPlayerNameSaved(false);
-        setSavePlayerNameError('');
-        setCurrentQuestion(null);
-        onBackToHome?.();
-    }, [onBackToHome, resetGame]);
 
     /**
      * 経過時間更新
@@ -546,6 +549,24 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
     ]);
 
     useEffect(() => {
+        if (startCountdownTargetAt === null) return;
+
+        const updateCountdown = () => {
+            const remaining = Math.max(0, Math.ceil((startCountdownTargetAt - Date.now()) / 1000));
+            setStartCountdownSecondsLeft(remaining);
+            if (remaining <= 0) {
+                setStartCountdownTargetAt(null);
+                setStartCountdownSecondsLeft(null);
+                startSingleGameNow();
+            }
+        };
+
+        updateCountdown();
+        const interval = setInterval(updateCountdown, 100);
+        return () => clearInterval(interval);
+    }, [startCountdownTargetAt, startSingleGameNow]);
+
+    useEffect(() => {
         return () => {
             if (phaseToastTimerRef.current) {
                 window.clearTimeout(phaseToastTimerRef.current);
@@ -558,18 +579,12 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
             if (event.key !== 'Escape') return;
 
             event.preventDefault();
-
-            if (isPlaying && currentQuestion && !showResult) {
-                handleBackToHomeDirect();
-                return;
-            }
-
             handleBackToMenu();
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [currentQuestion, handleBackToHomeDirect, handleBackToMenu, isPlaying, showResult]);
+    }, [handleBackToMenu]);
 
     // 状態の初期化は useState の初期値で行い、ゲーム開始はボタンクリック時に実行
     useEffect(() => {
@@ -644,14 +659,22 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
                             </div>
                         </div>
                     )}
+
+                    {startCountdownSecondsLeft !== null && (
+                        <div className="mt-3 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2">
+                            <div className="text-xs text-muted-foreground">ゲーム開始まで</div>
+                            <div className="text-3xl font-bold text-primary tabular-nums">{startCountdownSecondsLeft}</div>
+                        </div>
+                    )}
                 </div>
                 <ActionButtonRow className="w-full max-w-md">
                     <ActionButton
                         onClick={handleStartGame}
                         icon={Play}
                         className="bg-primary text-primary-foreground hover:bg-primary/90"
+                        disabled={startCountdownSecondsLeft !== null}
                     >
-                        ゲーム開始
+                        {startCountdownSecondsLeft !== null ? `開始まで ${startCountdownSecondsLeft}` : 'ゲーム開始'}
                     </ActionButton>
                     <ActionButton
                         onClick={handleBackToMenu}
