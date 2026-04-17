@@ -467,6 +467,17 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
         onBackToHome?.();
     }, [onBackToDifficultySelect, onBackToHome, resetGame]);
 
+    const handleBackToHomeDirect = useCallback(() => {
+        resetGame();
+        setShowResult(false);
+        setGameResult(null);
+        setLeaderboard([]);
+        setIsPlayerNameSaved(false);
+        setSavePlayerNameError('');
+        setCurrentQuestion(null);
+        onBackToHome?.();
+    }, [onBackToHome, resetGame]);
+
     /**
      * 経過時間更新
      */
@@ -541,6 +552,24 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
             }
         };
     }, []);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+
+            event.preventDefault();
+
+            if (isPlaying && currentQuestion && !showResult) {
+                handleBackToHomeDirect();
+                return;
+            }
+
+            handleBackToMenu();
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [currentQuestion, handleBackToHomeDirect, handleBackToMenu, isPlaying, showResult]);
 
     // 状態の初期化は useState の初期値で行い、ゲーム開始はボタンクリック時に実行
     useEffect(() => {

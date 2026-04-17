@@ -72,6 +72,50 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         };
     }, []);
 
+    React.useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement | null;
+            const isTypingTarget =
+                target instanceof HTMLInputElement ||
+                target instanceof HTMLTextAreaElement ||
+                target instanceof HTMLSelectElement ||
+                target?.isContentEditable;
+
+            if (event.key === 'Escape') {
+                if (!showDifficultySelect) return;
+                event.preventDefault();
+                setShowDifficultySelect(false);
+                onExitDifficultySelect?.();
+                return;
+            }
+
+            if (event.key !== 'Enter' || isTypingTarget) return;
+            event.preventDefault();
+
+            if (showDifficultySelect) {
+                onSelectSinglePlay('easy', selectedMinutes);
+                return;
+            }
+
+            if (isServerOnline) {
+                onSelectMultiPlay();
+                return;
+            }
+
+            setShowDifficultySelect(true);
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [
+        isServerOnline,
+        onExitDifficultySelect,
+        onSelectMultiPlay,
+        onSelectSinglePlay,
+        selectedMinutes,
+        showDifficultySelect,
+    ]);
+
     return (
         <div className="relative min-h-screen flex flex-col items-center justify-center px-4 pb-24 overflow-hidden animate-fade-up-soft">
             <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">

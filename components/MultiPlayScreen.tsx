@@ -120,6 +120,16 @@ const getTeamBadgeClass = (mode: TeamMode, teamId: 'A' | 'B' | null | undefined)
     return 'bg-muted text-muted-foreground';
 };
 
+const isTypingElement = (target: EventTarget | null): boolean => {
+    if (!(target instanceof HTMLElement)) return false;
+    return (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target.isContentEditable
+    );
+};
+
 export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBackToHome }) => {
     const socketRef = useRef<Socket | null>(null);
     const [mode, setMode] = useState<Mode>('menu');
@@ -699,6 +709,57 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
             kpm,
         };
     }, [playerId, roomState]);
+
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+
+                if (isChatOpen) {
+                    setIsChatOpen(false);
+                    return;
+                }
+
+                onBackToHome?.();
+                return;
+            }
+
+            if (event.key !== 'Enter') return;
+
+            const allowEnterFromPrivateCodeInput = mode === 'menu' && menuView === 'join' && joinView === 'private';
+            if (isTypingElement(event.target) && !allowEnterFromPrivateCodeInput) return;
+
+            if (mode !== 'menu' || isChatOpen) return;
+            event.preventDefault();
+
+            if (menuView === 'create') {
+                createRoom();
+                return;
+            }
+
+            if (joinView === 'private') {
+                joinRoom();
+                return;
+            }
+
+            if (selectedPublicRoomCode) {
+                joinPublicRoom(selectedPublicRoomCode);
+            }
+        };
+
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [
+        createRoom,
+        isChatOpen,
+        joinPublicRoom,
+        joinRoom,
+        joinView,
+        menuView,
+        mode,
+        onBackToHome,
+        selectedPublicRoomCode,
+    ]);
 
     if (mode === 'menu') {
         return (
