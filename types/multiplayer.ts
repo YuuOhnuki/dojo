@@ -65,3 +65,8 @@ export interface GameStartedPayload {
     timeLimitSeconds: number;
     startedAt: number;
 }
+
+export interface GameCountdownPayload {
+    seconds: number;
+    startsAt: number;
+}

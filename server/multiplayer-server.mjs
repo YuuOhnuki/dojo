@@ -14,6 +14,8 @@ const ALLOWED_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 const ALLOWED_TEAM_MODES = new Set(['free', 'two-teams']);
 const ALLOWED_SCORE_MODES = new Set(['correct-count', 'correct-rate', 'completed-questions', 'kpm']);
 const MAX_CHAT_MESSAGES = 30;
+const GAME_START_COUNTDOWN_SECONDS = 3;
+const GAME_START_COUNTDOWN_MS = GAME_START_COUNTDOWN_SECONDS * 1000;
 
 function loadLocalEnv() {
     const envPath = path.join(process.cwd(), '.env');
@@ -138,6 +140,8 @@ const questionsData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
  *   status: 'waiting' | 'playing' | 'finished';
  *   question: { id: string; difficulty: string; japanese: string; romaji: string; alternatives?: string[] };
  *   startedAt: number | null;
+ *   countdownTimer: NodeJS.Timeout | null;
+ *   finishTimer: NodeJS.Timeout | null;
  *   chatMessages: Array<{ id: string; playerId: string; playerName: string; content: string; sentAt: number }>;
  *   players: Map<string, Player>;
  * }} Room
@@ -614,6 +618,82 @@ function emitRoomState(roomCode) {
     });
 }
 
+function clearRoomTimers(room) {
+    if (room.countdownTimer) {
+        clearTimeout(room.countdownTimer);
+        room.countdownTimer = null;
+    }
+    if (room.finishTimer) {
+        clearTimeout(room.finishTimer);
+        room.finishTimer = null;
+    }
+}
+
+async function forceFinishRoom(roomCode) {
+    const room = rooms.get(roomCode);
+    if (!room || room.status !== 'playing') return;
+
+    const forcedFinishedAt = Date.now();
+    const durationMs = room.minutes * 60 * 1000;
+
+    room.players.forEach((player) => {
+        if (player.isCompleted) return;
+        player.isCompleted = true;
+        player.finishedAt = forcedFinishedAt;
+        player.elapsedTime = Math.max(player.elapsedTime, durationMs);
+    });
+
+    for (const player of room.players.values()) {
+        const multiplayerRank = getCompetitionRank(room, player.playerId);
+        await persistMultiplayerResult(room, player, multiplayerRank);
+    }
+
+    room.status = 'finished';
+    clearRoomTimers(room);
+    emitRoomState(roomCode);
+    io.to(roomCode).emit('game:finished');
+}
+
+function startGameWithCountdown(roomCode) {
+    const room = rooms.get(roomCode);
+    if (!room || room.status !== 'waiting') return;
+
+    clearRoomTimers(room);
+    room.status = 'playing';
+    room.startedAt = null;
+    room.players.forEach((player) => {
+        resetPlayerStatus(player);
+    });
+
+    emitRoomState(roomCode);
+    io.to(roomCode).emit('game:countdown', {
+        seconds: GAME_START_COUNTDOWN_SECONDS,
+        startsAt: Date.now() + GAME_START_COUNTDOWN_MS,
+    });
+
+    room.countdownTimer = setTimeout(() => {
+        const activeRoom = rooms.get(roomCode);
+        if (!activeRoom || activeRoom.status !== 'playing') return;
+
+        activeRoom.countdownTimer = null;
+        activeRoom.startedAt = Date.now();
+        emitRoomState(roomCode);
+
+        io.to(roomCode).emit('game:started', {
+            question: activeRoom.question,
+            timeLimitSeconds: activeRoom.minutes * 60,
+            startedAt: activeRoom.startedAt,
+        });
+
+        const durationMs = activeRoom.minutes * 60 * 1000;
+        activeRoom.finishTimer = setTimeout(() => {
+            forceFinishRoom(roomCode).catch((error) => {
+                console.error('[multiplayer] failed to force-finish room', error);
+            });
+        }, durationMs);
+    }, GAME_START_COUNTDOWN_MS);
+}
+
 function maybeAutoStart(roomCode) {
     const room = rooms.get(roomCode);
     if (!room || room.status !== 'waiting' || !room.autoStart) return;
@@ -627,17 +707,7 @@ function maybeAutoStart(roomCode) {
     const everyoneReady = nonHostPlayers.every((player) => player.isReady);
     if (!everyoneReady) return;
 
-    room.status = 'playing';
-    room.startedAt = Date.now();
-    players.forEach((player) => {
-        resetPlayerStatus(player);
-    });
-    emitRoomState(roomCode);
-    io.to(roomCode).emit('game:started', {
-        question: room.question,
-        timeLimitSeconds: room.minutes * 60,
-        startedAt: room.startedAt,
-    });
+    startGameWithCountdown(roomCode);
 }
 
 function handleCompletionIfFinished(roomCode) {
@@ -647,6 +717,7 @@ function handleCompletionIfFinished(roomCode) {
     if (!allCompleted) return;
 
     room.status = 'finished';
+    clearRoomTimers(room);
     emitRoomState(roomCode);
     io.to(roomCode).emit('game:finished');
 }
@@ -681,6 +752,8 @@ io.on('connection', (socket) => {
             status: 'waiting',
             question,
             startedAt: null,
+            countdownTimer: null,
+            finishTimer: null,
             chatMessages: [],
             players: new Map(),
         };
@@ -819,17 +892,7 @@ io.on('connection', (socket) => {
             return;
         }
 
-        room.status = 'playing';
-        room.startedAt = Date.now();
-        room.players.forEach((player) => {
-            resetPlayerStatus(player);
-        });
-        emitRoomState(normalizedCode);
-        io.to(normalizedCode).emit('game:started', {
-            question: room.question,
-            timeLimitSeconds: room.minutes * 60,
-            startedAt: room.startedAt,
-        });
+        startGameWithCountdown(normalizedCode);
         ack?.({ ok: true });
     });
 
@@ -1012,6 +1075,7 @@ io.on('connection', (socket) => {
             return;
         }
 
+        clearRoomTimers(room);
         room.status = 'waiting';
         room.startedAt = null;
         room.question = pickQuestion(room.difficulty);
@@ -1077,6 +1141,7 @@ io.on('connection', (socket) => {
         room.players.delete(socket.id);
 
         if (room.players.size === 0) {
+            clearRoomTimers(room);
             rooms.delete(roomCode);
             return;
         }
@@ -1086,7 +1151,9 @@ io.on('connection', (socket) => {
             room.hostPlayerId = nextHost.playerId;
         }
 
-        assignTeamsForRoom(room);
+        if (room.status === 'waiting') {
+            assignTeamsForRoom(room);
+        }
 
         emitRoomState(roomCode);
     });

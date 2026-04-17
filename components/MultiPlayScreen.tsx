@@ -27,6 +27,7 @@ import { ActionButton, ActionButtonRow } from '@/components/ui/action-button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Difficulty, Question } from '@/types/typing';
 import {
+    GameCountdownPayload,
     GameStartedPayload,
     MultiplayerRoomState,
     PublicRoomSummary,
@@ -142,6 +143,8 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     const [timeLimit, setTimeLimit] = useState(60);
     const [elapsedTime, setElapsedTime] = useState(0);
     const [gameStartedAt, setGameStartedAt] = useState<number | null>(null);
+    const [countdownTargetAt, setCountdownTargetAt] = useState<number | null>(null);
+    const [countdownSecondsLeft, setCountdownSecondsLeft] = useState<number | null>(null);
     const [correctCount, setCorrectCount] = useState(0);
     const [totalInputCount, setTotalInputCount] = useState(0);
     const [errorCount, setErrorCount] = useState(0);
@@ -153,9 +156,11 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     const [chatInput, setChatInput] = useState('');
     const [isChatInputFocused, setIsChatInputFocused] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
+    const [lastReadChatMessageId, setLastReadChatMessageId] = useState<string | null>(null);
     const completionSentRef = useRef(false);
     const [serverOnline, setServerOnline] = useState<boolean | null>(null);
     const chatScrollRef = useRef<HTMLDivElement | null>(null);
+    const isChatOpenRef = useRef(false);
 
     const isHost = roomState?.hostPlayerId === playerId;
     const currentRoomCode = roomState?.roomCode ?? '';
@@ -182,10 +187,18 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     }, []);
 
     useEffect(() => {
+        isChatOpenRef.current = isChatOpen;
+    }, [isChatOpen]);
+
+    useEffect(() => {
         const socket = ensureSocket();
 
         socket.on('room:state', (payload: MultiplayerRoomState) => {
             setRoomState(payload);
+            const latestChatMessage = payload.chatMessages[payload.chatMessages.length - 1];
+            if (latestChatMessage && (isChatOpenRef.current || !lastReadChatMessageId)) {
+                setLastReadChatMessageId(latestChatMessage.id);
+            }
             setDifficulty(payload.difficulty ?? 'easy');
             setMinutes(clampMinutes(payload.minutes ?? MINUTES_MIN));
             setMaxPlayers(clampMaxPlayers(payload.maxPlayers ?? 6));
@@ -200,21 +213,36 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                     : 'correct-count',
             );
             if (payload.status === 'waiting') setMode('lobby');
-            if (payload.status === 'finished') setMode('finished');
+            if (payload.status === 'finished') {
+                setMode('finished');
+                setIsChatOpen(false);
+            }
         });
 
         socket.on('room:kicked', () => {
             setRoomState(null);
             setMode('menu');
             setMenuView('join');
+            setIsChatOpen(false);
+            setLastReadChatMessageId(null);
+            setCountdownTargetAt(null);
+            setCountdownSecondsLeft(null);
             setErrorMessage('ホストによりルームから退出されました。');
         });
 
+        socket.on('game:countdown', (payload: GameCountdownPayload) => {
+            setCountdownTargetAt(payload.startsAt);
+            setCountdownSecondsLeft(Math.max(payload.seconds, 1));
+            setMode('lobby');
+        });
+
         socket.on('game:started', (payload: GameStartedPayload) => {
+            setCountdownTargetAt(null);
+            setCountdownSecondsLeft(null);
             setQuestion(payload.question);
             setTimeLimit(payload.timeLimitSeconds);
             setElapsedTime(0);
-            setGameStartedAt(payload.startedAt);
+            setGameStartedAt(Date.now());
             setCorrectCount(0);
             setTotalInputCount(0);
             setErrorCount(0);
@@ -222,20 +250,36 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
             setTotalCharProgress(0);
             setCompletedQuestionCount(0);
             completionSentRef.current = false;
+            setIsChatOpen(false);
             setMode('playing');
         });
 
         socket.on('game:finished', () => {
+            setIsChatOpen(false);
             setMode('finished');
         });
 
         return () => {
             socket.off('room:state');
+            socket.off('game:countdown');
             socket.off('game:started');
             socket.off('game:finished');
             socket.off('room:kicked');
         };
-    }, [ensureSocket]);
+    }, [ensureSocket, lastReadChatMessageId]);
+
+    useEffect(() => {
+        if (countdownTargetAt === null) return;
+
+        const updateCountdown = () => {
+            const remaining = Math.max(0, Math.ceil((countdownTargetAt - Date.now()) / 1000));
+            setCountdownSecondsLeft(remaining);
+        };
+
+        updateCountdown();
+        const interval = setInterval(updateCountdown, 100);
+        return () => clearInterval(interval);
+    }, [countdownTargetAt]);
 
     useEffect(() => {
         if (mode !== 'playing' || gameStartedAt === null) return;
@@ -300,12 +344,6 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
         if (mode !== 'lobby') return;
         chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' });
     }, [mode, roomState?.chatMessages]);
-
-    useEffect(() => {
-        if (mode !== 'lobby') {
-            setIsChatOpen(false);
-        }
-    }, [mode]);
 
     const createRoom = useCallback(() => {
         setErrorMessage('');
@@ -904,6 +942,12 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     if (mode === 'lobby') {
         const me = roomState?.players.find((player) => player.playerId === playerId);
         const chatMessages = roomState?.chatMessages ?? [];
+        const unreadChatCount = (() => {
+            if (chatMessages.length === 0 || !lastReadChatMessageId) return 0;
+            const readIndex = chatMessages.findIndex((message) => message.id === lastReadChatMessageId);
+            if (readIndex < 0) return chatMessages.length;
+            return Math.max(chatMessages.length - readIndex - 1, 0);
+        })();
         return (
             <div className="relative h-dvh p-3 md:p-4 overflow-hidden">
                 <div className="surface-card max-w-3xl mx-auto h-full p-4 md:p-5 space-y-4 animate-fade-up-soft overflow-y-auto">
@@ -929,6 +973,12 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             ? 'あなたはホストです。設定変更・チーム調整・キックが可能です。'
                             : 'ホストの開始を待っています。準備完了ボタンを押してください。'}
                     </div>
+
+                    {countdownSecondsLeft !== null && (
+                        <div className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
+                            ゲーム開始まで {countdownSecondsLeft}...
+                        </div>
+                    )}
 
                     <div className="text-xs text-muted-foreground">
                         人数: {roomState?.players.length ?? 0}/{roomState?.maxPlayers ?? maxPlayers} | 自動スタート:{' '}
@@ -1271,11 +1321,22 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                 ) : (
                     <Button
                         type="button"
-                        onClick={() => setIsChatOpen(true)}
+                        onClick={() => {
+                            setIsChatOpen(true);
+                            const latestChatMessage = chatMessages[chatMessages.length - 1];
+                            if (latestChatMessage) {
+                                setLastReadChatMessageId(latestChatMessage.id);
+                            }
+                        }}
                         className="absolute left-3 bottom-3 z-20 h-11 w-11 rounded-full px-0 md:left-4 md:bottom-4"
                         aria-label="チャットを開く"
                     >
                         <MessageSquare className="size-5" />
+                        {unreadChatCount > 0 && (
+                            <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                                {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                            </span>
+                        )}
                     </Button>
                 )}
             </div>
