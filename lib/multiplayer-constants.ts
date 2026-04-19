@@ -2,7 +2,8 @@
  * Multiplayer UI constants - difficulty options, score labels, etc.
  */
 
-import { Difficulty, ScoreMode } from '@/types/typing';
+import { ScoreMode } from '@/types/multiplayer';
+import { Difficulty } from '@/types/typing';
 
 export const SOCKET_URL = process.env.NEXT_PUBLIC_MULTIPLAYER_URL ?? 'http://localhost:4001';
 export const HEALTH_CHECK_URL = `${SOCKET_URL}/health`;
