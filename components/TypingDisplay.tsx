@@ -227,12 +227,14 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
             <div className="text-center mb-8">
                 {difficulty && (
                     <div className="mb-3 flex justify-center">
-                        <div className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${difficultyColorMap[difficulty] || ''}`}>
+                        <div
+                            className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${difficultyColorMap[difficulty] || ''}`}
+                        >
                             {difficultyLabelMap[difficulty] || difficulty}
                         </div>
                     </div>
                 )}
-                <div className="text-2xl md:text-3xl font-light leading-relaxed tracking-wide min-h-20 break-words whitespace-pre-wrap">
+                <div className="text-2xl md:text-3xl font-light leading-relaxed tracking-wide min-h-20 wrap-break-word whitespace-pre-wrap">
                     {displayChars.map(({ char, index, isCorrect, isCurrent }) => (
                         <span
                             key={index}
@@ -251,7 +253,7 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
             </div>
 
             <div className="text-center mb-6 min-h-10 flex flex-col items-center justify-center space-y-2">
-                <div className="text-xl md:text-2xl font-mono tracking-wider text-foreground break-words">
+                <div className="text-xl md:text-2xl font-mono tracking-wider text-foreground wrap-break-word">
                     {romajiTarget.split('').map((char: string, idx: number) => {
                         const isCompleted = idx < completedRomaji.length;
                         const isCurrent = idx === completedRomaji.length;
@@ -272,8 +274,13 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
             </div>
 
             <div className="text-center mb-6 min-h-9 px-4 md:px-6">
-                <div className={`text-lg font-mono tracking-wider overflow-hidden ${lastError ? 'text-red-500' : 'text-muted-foreground'}`}>
-                    <div ref={typedHistoryContainerRef} className="inline-flex whitespace-nowrap gap-1 overflow-x-auto scrollbar-hide">
+                <div
+                    className={`text-lg font-mono tracking-wider overflow-hidden ${lastError ? 'text-red-500' : 'text-muted-foreground'}`}
+                >
+                    <div
+                        ref={typedHistoryContainerRef}
+                        className="inline-flex whitespace-nowrap gap-1 overflow-x-auto scrollbar-hide"
+                    >
                         {typedHistory.length > 0 ? (
                             typedHistory.slice(-20).map((item, idx: number) => (
                                 <span
@@ -320,7 +327,7 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
                 type="text"
                 value={userInput}
                 onChange={handleInputChange}
-                className="absolute -left-[9999px] h-px w-px opacity-0 pointer-events-none"
+                className="absolute -left-2499.75 h-px w-px opacity-0 pointer-events-none"
                 autoFocus
                 autoComplete="off"
                 spellCheck="false"
@@ -338,7 +345,7 @@ export const TypingDisplay: React.FC<TypingDisplayProps> = ({
                 isErrorToastVisible &&
                 createPortal(
                     <div
-                        className={`pointer-events-none fixed bottom-4 left-4 z-[9999] rounded-xl border border-red-500/35 bg-red-500/15 px-4 py-2 text-red-700 shadow-sm backdrop-blur-md transition-opacity duration-300 dark:text-red-200 md:bottom-5 md:left-5 ${
+                        className={`pointer-events-none fixed bottom-4 left-4 z-9999 rounded-xl border border-red-500/35 bg-red-500/15 px-4 py-2 text-red-700 shadow-sm backdrop-blur-md transition-opacity duration-300 dark:text-red-200 md:bottom-5 md:left-5 ${
                             isErrorToastFading ? 'opacity-0' : 'opacity-100'
                         }`}
                     >

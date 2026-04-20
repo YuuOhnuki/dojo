@@ -73,14 +73,14 @@ export const ResultCard: React.FC<ResultCardProps> = ({
     return (
         <div className="h-dvh flex flex-col overflow-hidden animate-fade-up-soft">
             {/* ヘッダー */}
-            <div className="flex-shrink-0 p-3 border-b border-border/70">
+            <div className="shrink-0 p-3 border-b border-border/70">
                 <div className="max-w-2xl mx-auto flex text-center items-center">
                     <Image
                         src="/logo.svg"
                         alt="e-typic"
                         width={240}
                         height={76}
-                        className="brand-logo h-auto w-[100px] md:w-[120px]"
+                        className="brand-logo h-auto w-25 md:w-30"
                     />
                 </div>
             </div>
@@ -123,10 +123,10 @@ export const ResultCard: React.FC<ResultCardProps> = ({
 
                             {/* レベルアップ通知 */}
                             {levelInfo?.leveledUp && (
-                                <div className="rounded-lg bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 p-4 animate-pulse">
+                                <div className="rounded-lg bg-linear-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 p-4 animate-pulse">
                                     <div className="text-center space-y-2">
                                         <div className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                                            ✨ レベルアップ！✨
+                                            ✨レベルアップ✨
                                         </div>
                                         <div className="text-2xl font-bold text-purple-600 dark:text-purple-300">
                                             Lv {levelInfo.previousLevel} → Lv {levelInfo.currentLevel}

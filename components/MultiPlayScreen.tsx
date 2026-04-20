@@ -31,7 +31,6 @@ import { Difficulty, Question } from '@/types/typing';
 import { useCountdown } from '@/lib/use-countdown';
 import {
     MINUTES_MIN,
-    MINUTES_MAX,
     ROOM_CODE_LENGTH,
     MAX_PLAYERS_MIN,
     MAX_PLAYERS_MAX,
@@ -85,10 +84,6 @@ interface PublicRoomsAck extends RoomActionAck {
 
 interface ChatMessageAck extends RoomActionAck {
     message?: string;
-}
-
-interface UpdatePlayerNameAck extends RoomActionAck {
-    playerName?: string;
 }
 
 const isTypingElement = (target: EventTarget | null): boolean => {
@@ -583,27 +578,6 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
             },
         );
     }, [ensureSocket, roomState]);
-
-    const updatePlayerNameInRoom = useCallback(() => {
-        if (!roomState) return;
-        const me = roomState.players.find((player) => player.playerId === playerId);
-        const fallbackName = me?.name || DEFAULT_PLAYER_NAME;
-        const safePlayerName = normalizePlayerName(playerName, fallbackName);
-
-        emitRoomAction<UpdatePlayerNameAck, { roomCode: string; playerName: string }>(
-            ensureSocket,
-            setErrorMessage,
-            'room:update-name',
-            {
-                roomCode: roomState.roomCode,
-                playerName: safePlayerName,
-            },
-            'ユーザー名の更新に失敗しました。',
-            (response: UpdatePlayerNameAck) => {
-                setPlayerName(response.playerName ?? safePlayerName);
-            },
-        );
-    }, [ensureSocket, playerId, playerName, roomState]);
 
     const handleProgress = useCallback(
         (state: { currentIndex: number }) => {
@@ -1324,7 +1298,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                 {isChatOpen ? (
                     <div className="absolute inset-0 z-20" onClick={() => setIsChatOpen(false)} aria-hidden="true">
                         <div
-                            className="absolute left-3 bottom-3 w-[min(68vw,15rem)] md:left-4 md:bottom-4 md:w-[16rem] lg:w-[17rem]"
+                            className="absolute left-3 bottom-3 w-[min(68vw,15rem)] md:left-4 md:bottom-4 md:w-[16rem] lg:w-68"
                             onClick={(event) => event.stopPropagation()}
                         >
                             <div className="surface-card overflow-hidden shadow-lg">
@@ -1354,7 +1328,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                                         </div>
                                     ) : (
                                         chatMessages.map((message) => (
-                                            <div key={message.id} className="text-sm leading-relaxed break-words">
+                                            <div key={message.id} className="text-sm leading-relaxed wrap-break-word">
                                                 <span className="font-semibold text-foreground">
                                                     {message.playerName}
                                                 </span>
@@ -1473,7 +1447,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                                     {ranking.map((player, idx) => (
                                         <div
                                             key={player.playerId}
-                                            className={`rounded border border-border p-3 space-y-1 flex-shrink-0 ${
+                                            className={`rounded border border-border p-3 space-y-1 shrink-0 ${
                                                 player.playerId === playerId ? 'bg-blue-500/10 border-blue-500/40' : ''
                                             }`}
                                         >
@@ -1532,7 +1506,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                     </div>
                 </div>
 
-                <div className="flex-shrink-0 p-2 md:p-3 border-t border-border/70 sticky bottom-0 bg-background/95 backdrop-blur-sm z-10">
+                <div className="shrink-0 p-2 md:p-3 border-t border-border/70 sticky bottom-0 bg-background/95 backdrop-blur-sm z-10">
                     <div className="max-w-3xl mx-auto">
                         <div className="grid grid-cols-3 gap-3 text-center">
                             <div className="space-y-1">
@@ -1559,7 +1533,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                 {isChatOpen ? (
                     <div className="absolute inset-0 z-20" onClick={() => setIsChatOpen(false)} aria-hidden="true">
                         <div
-                            className="absolute left-3 bottom-3 w-[min(68vw,15rem)] md:left-4 md:bottom-4 md:w-[16rem] lg:w-[17rem]"
+                            className="absolute left-3 bottom-3 w-[min(68vw,15rem)] md:left-4 md:bottom-4 md:w-[16rem] lg:w-68"
                             onClick={(event) => event.stopPropagation()}
                         >
                             <div className="surface-card overflow-hidden shadow-lg">
@@ -1591,7 +1565,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                                         </div>
                                     ) : (
                                         roomState?.chatMessages.map((message) => (
-                                            <div key={message.id} className="text-sm leading-relaxed break-words">
+                                            <div key={message.id} className="text-sm leading-relaxed wrap-break-word">
                                                 <span className="font-semibold text-foreground">
                                                     {message.playerName}
                                                 </span>

@@ -11,7 +11,6 @@ import {
     Keyboard,
     Users,
     LogIn,
-    UserPlus,
     Settings,
     TrendingUp,
 } from 'lucide-react';
@@ -44,7 +43,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     onSelectMultiPlay,
     onSelectLeaderboard,
     onSelectSignIn,
-    onSelectSignUp,
     onSelectSettings,
     onSelectStats,
     appVersion,
@@ -157,7 +155,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         width={420}
                         height={132}
                         priority
-                        className="brand-logo h-auto w-[260px] md:w-[340px]"
+                        className="brand-logo h-auto w-65 md:w-85"
                     />
                 </div>
             </div>

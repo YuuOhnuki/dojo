@@ -444,7 +444,8 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
         maxCombo,
         maxPhaseReached,
         totalInputCount,
-        session?.user?.username,
+        saveResultToDb,
+        session,
     ]);
 
     /**
@@ -725,7 +726,7 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
                     {phaseToastText}
                 </div>
             )}
-            <div className="flex-shrink-0 p-3 md:p-4 border-b border-border/70">
+            <div className="shrink-0 p-3 md:p-4 border-b border-border/70">
                 <div className="max-w-3xl mx-auto flex items-center justify-between">
                     <div>
                         <h1 className="text-xl md:text-2xl font-light">タイピング練習</h1>
@@ -753,7 +754,7 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
                 </div>
             </div>
 
-            <div className="flex-shrink-0 p-2 md:p-3">
+            <div className="shrink-0 p-2 md:p-3">
                 <div className="max-w-3xl mx-auto">
                     {isSurvivalMode ? (
                         <div className="grid grid-cols-2 gap-3 items-center">
@@ -802,7 +803,7 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
                 </div>
             </div>
 
-            <div className="flex-shrink-0 p-2 md:p-3 border-t border-border/70 sticky bottom-0 bg-background/95 backdrop-blur-sm z-10">
+            <div className="shrink-0 p-2 md:p-3 border-t border-border/70 sticky bottom-0 bg-background/95 backdrop-blur-sm z-10">
                 <div className="max-w-3xl mx-auto">
                     <div className={`grid ${isSurvivalMode ? 'grid-cols-3' : 'grid-cols-3'} gap-3 text-center`}>
                         <div className="space-y-1">
