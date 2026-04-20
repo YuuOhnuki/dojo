@@ -26,6 +26,7 @@ import { ProgressBar } from '@/components/ProgressBar';
 import { Button } from '@/components/ui/button';
 import { ActionButton, ActionButtonRow } from '@/components/ui/action-button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Difficulty, Question } from '@/types/typing';
 import { useCountdown } from '@/lib/use-countdown';
 import {
@@ -156,6 +157,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     const [completedQuestionCount, setCompletedQuestionCount] = useState(0);
     const [errorMessage, setErrorMessage] = useState<string>('');
     const [stayInRoom, setStayInRoom] = useState(false);
+    const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
     const [chatInput, setChatInput] = useState('');
     const [isChatInputFocused, setIsChatInputFocused] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
@@ -235,7 +237,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
         socket.on('game:countdown', (payload: GameCountdownPayload) => {
             setCountdownTargetAt(payload.startsAt);
-            setMode('lobby');
+            setMode('playing');
         });
 
         socket.on('game:started', (payload: GameStartedPayload) => {
@@ -258,6 +260,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
         socket.on('game:finished', () => {
             setIsChatOpen(false);
             setMode('finished');
+            setIsLoadingLeaderboard(true);
         });
 
         return () => {
@@ -476,7 +479,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
     }, [autoStart, difficulty, ensureSocket, isPublicRoom, maxPlayers, minutes, roomState, scoreMode, teamMode]);
 
     const sendLobbyChat = useCallback(() => {
-        if (!roomState || roomState.status !== 'waiting') return;
+        if (!roomState) return;
         const normalizedContent = chatInput.trim();
         if (!normalizedContent) return;
 
@@ -807,24 +810,16 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
                     {menuView === 'create' && (
                         <div className="space-y-3">
-                            {!session?.user && (
-                                <div className="space-y-2 relative">
-                                    <div className="text-sm text-muted-foreground">プレイヤー名</div>
-                                    <input
-                                        value={playerName}
-                                        onChange={(e) => setPlayerName(e.target.value)}
-                                        className="surface-input w-full px-3 py-2 box-border"
-                                        placeholder="名前を入力"
-                                        maxLength={16}
-                                    />
-                                </div>
-                            )}
-                            {session?.user && (
-                                <div className="text-sm text-muted-foreground/60">
-                                    プレイヤー名:{' '}
-                                    <span className="font-semibold text-foreground">{session.user.username}</span>
-                                </div>
-                            )}
+                            <div className="space-y-2 relative">
+                                <div className="text-sm text-muted-foreground">プレイヤー名</div>
+                                <input
+                                    value={playerName}
+                                    onChange={(e) => setPlayerName(e.target.value)}
+                                    className="surface-input w-full px-3 py-2 box-border"
+                                    placeholder="名前を入力"
+                                    maxLength={16}
+                                />
+                            </div>
 
                             <div className="surface-muted p-3.5 space-y-3">
                                 <div className="text-sm text-muted-foreground">ルーム作成設定</div>
@@ -870,24 +865,16 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
                     {menuView === 'join' && (
                         <div className="space-y-3 max-h-[70dvh] overflow-y-auto overflow-x-hidden pr-1">
-                            {!session?.user && (
-                                <div className="space-y-2 relative">
-                                    <div className="text-sm text-muted-foreground">プレイヤー名</div>
-                                    <input
-                                        value={playerName}
-                                        onChange={(e) => setPlayerName(e.target.value)}
-                                        className="surface-input w-full px-3 py-2 box-border"
-                                        placeholder="名前を入力"
-                                        maxLength={16}
-                                    />
-                                </div>
-                            )}
-                            {session?.user && (
-                                <div className="text-sm text-muted-foreground/60">
-                                    プレイヤー名:{' '}
-                                    <span className="font-semibold text-foreground">{session.user.username}</span>
-                                </div>
-                            )}
+                            <div className="space-y-2 relative">
+                                <div className="text-sm text-muted-foreground">プレイヤー名</div>
+                                <input
+                                    value={playerName}
+                                    onChange={(e) => setPlayerName(e.target.value)}
+                                    className="surface-input w-full px-3 py-2 box-border"
+                                    placeholder="名前を入力"
+                                    maxLength={16}
+                                />
+                            </div>
 
                             <div className="surface-muted p-1 grid grid-cols-2 gap-1">
                                 <Button
@@ -1057,32 +1044,6 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             : 'ホストの開始を待っています。準備完了ボタンを押してください。'}
                     </div>
 
-                    <div className="surface-muted p-3 space-y-2">
-                        <div className="text-xs text-muted-foreground">
-                            ユーザー名{!session?.user && '（ルーム参加中でも変更可能）'}
-                        </div>
-                        {!session?.user && (
-                            <div className="flex gap-2">
-                                <input
-                                    value={playerName}
-                                    onChange={(event) => setPlayerName(event.target.value)}
-                                    className="surface-input w-full px-3 py-2"
-                                    placeholder="名前を入力"
-                                    maxLength={16}
-                                />
-                                <Button type="button" variant="outline" onClick={updatePlayerNameInRoom}>
-                                    反映
-                                </Button>
-                            </div>
-                        )}
-                        {session?.user && (
-                            <div className="text-sm">
-                                <span className="text-muted-foreground">ログインユーザー: </span>
-                                <span className="font-semibold text-foreground">{session.user.username}</span>
-                            </div>
-                        )}
-                    </div>
-
                     {countdownSecondsLeft !== null && (
                         <div className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
                             ゲーム開始まで {countdownSecondsLeft}...
@@ -1110,22 +1071,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                                     }`}
                                 >
                                     <div className="flex min-w-0 items-center">
-                                        <span
-                                            className={`mr-2 text-sm font-semibold ${
-                                                idx === 0
-                                                    ? 'text-yellow-600'
-                                                    : idx === 1
-                                                      ? 'text-gray-400'
-                                                      : idx === 2
-                                                        ? 'text-amber-600'
-                                                        : 'text-gray-500'
-                                            }`}
-                                        >
-                                            {idx + 1}.
-                                        </span>
-                                        {player.playerId === roomState?.hostPlayerId && (
-                                            <Crown className="mr-2 w-4 h-4 text-yellow-500" />
-                                        )}
+                                        <span className="mr-2 text-sm font-semibold text-gray-500">{idx + 1}.</span>
                                         <span
                                             className={`truncate font-medium ${getTeamNameClass(teamMode, player.teamId)}`}
                                         >
@@ -1215,43 +1161,52 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             <div className="grid gap-3 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <div className="text-xs text-muted-foreground">難易度</div>
-                                    <select
+                                    <Select
                                         value={difficulty}
-                                        onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-                                        className="surface-input w-full px-3 py-2"
+                                        onValueChange={(value) => setDifficulty(value as Difficulty)}
                                     >
-                                        {difficultyOptions.map((item) => (
-                                            <option key={item.key} value={item.key}>
-                                                {item.label}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {difficultyOptions.map((item) => (
+                                                <SelectItem key={item.key} value={item.key}>
+                                                    {item.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 <div className="space-y-2">
                                     <div className="text-xs text-muted-foreground">チーム分け</div>
-                                    <select
-                                        value={teamMode}
-                                        onChange={(e) => setTeamMode(e.target.value as TeamMode)}
-                                        className="surface-input w-full px-3 py-2"
-                                    >
-                                        <option value="free">個人戦</option>
-                                        <option value="two-teams">2チーム</option>
-                                    </select>
+                                    <Select value={teamMode} onValueChange={(value) => setTeamMode(value as TeamMode)}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="free">個人戦</SelectItem>
+                                            <SelectItem value="two-teams">2チーム</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 <div className="space-y-2 md:col-span-2">
                                     <div className="text-xs text-muted-foreground">対戦方式</div>
-                                    <select
+                                    <Select
                                         value={scoreMode}
-                                        onChange={(e) => setScoreMode(e.target.value as ScoreMode)}
-                                        className="surface-input w-full px-3 py-2"
+                                        onValueChange={(value) => setScoreMode(value as ScoreMode)}
                                     >
-                                        <option value="correct-count">正解タイプ数</option>
-                                        <option value="correct-rate">正解率</option>
-                                        <option value="completed-questions">正解問題数</option>
-                                        <option value="kpm">KPM</option>
-                                    </select>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="correct-count">正解タイプ数</SelectItem>
+                                            <SelectItem value="correct-rate">正解率</SelectItem>
+                                            <SelectItem value="completed-questions">正解問題数</SelectItem>
+                                            <SelectItem value="kpm">KPM</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 <div className="space-y-2">
@@ -1469,115 +1424,232 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
 
     if (mode === 'playing' && question) {
         return (
-            <div className="h-dvh p-3 md:p-4 overflow-hidden animate-fade-up-soft">
-                <div className="max-w-5xl mx-auto h-full space-y-4 overflow-y-auto">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div>
-                            <h2 className="text-2xl md:text-3xl font-light">マルチプレイレース</h2>
-                            <div className="text-sm text-muted-foreground">
-                                ルームコード:
-                                <span className="ml-2 font-semibold text-lg md:text-xl tracking-widest">
-                                    {currentRoomCode}
-                                </span>
+            <div className="h-dvh flex flex-col overflow-hidden animate-fade-up-soft">
+                <div className="flex-1 overflow-y-auto p-3 md:p-4">
+                    <div className="max-w-5xl mx-auto space-y-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div>
+                                <h2 className="text-2xl md:text-3xl font-light">マルチプレイレース</h2>
+                                <div className="text-sm text-muted-foreground">
+                                    ルームコード:
+                                    <span className="ml-2 font-semibold text-lg md:text-xl tracking-widest">
+                                        {currentRoomCode}
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                        <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
-                            <div className="flex gap-2 md:max-w-sm">
-                                <input
-                                    value={playerName}
-                                    onChange={(event) => setPlayerName(event.target.value)}
-                                    className="surface-input w-full md:w-48 px-3 py-2"
-                                    placeholder="名前を入力"
-                                    maxLength={16}
-                                />
-                                <Button type="button" variant="outline" onClick={updatePlayerNameInRoom}>
-                                    反映
-                                </Button>
-                            </div>
-                            <ActionButton onClick={onBackToHome} variant="outline" className="w-auto" icon={Home}>
-                                退出
-                            </ActionButton>
-                        </div>
-                    </div>
 
-                    <ProgressBar timeLimit={timeLimit} elapsedSeconds={elapsedTime} />
+                        <ProgressBar timeLimit={timeLimit} elapsedSeconds={elapsedTime} />
 
-                    <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
-                        <div className="surface-muted p-4">
-                            <TypingDisplay
-                                key={`${question.id}-${completedQuestionCount}`}
-                                japanese={question.japanese}
-                                romaji={question.romaji}
-                                alternatives={question.alternatives}
-                                accentColor="blue"
-                                onProgress={handleProgress}
-                                onError={handleError}
-                                onComplete={handleComplete}
-                            />
-                        </div>
-
-                        <div className="surface-card p-3.5 space-y-2.5">
-                            <div className="text-sm text-muted-foreground">リアルタイム進捗 ({ranking.length})</div>
-                            <div className="max-h-72 md:max-h-80 overflow-y-auto space-y-2.5">
-                                {ranking.map((player, idx) => (
-                                    <div
-                                        key={player.playerId}
-                                        className={`rounded border border-border p-3 space-y-1 ${
-                                            player.playerId === playerId ? 'bg-blue-500/10 border-blue-500/40' : ''
-                                        }`}
-                                    >
-                                        <div className="flex justify-between text-sm">
-                                            <span className="flex items-center">
-                                                <span
-                                                    className={`mr-2 font-semibold ${
-                                                        idx === 0
-                                                            ? 'text-yellow-600'
-                                                            : idx === 1
-                                                              ? 'text-gray-400'
-                                                              : idx === 2
-                                                                ? 'text-amber-600'
-                                                                : 'text-gray-500'
-                                                    }`}
-                                                >
-                                                    {idx + 1}.
-                                                </span>
-                                                <span className={getTeamNameClass(teamMode, player.teamId)}>
-                                                    {player.name}
-                                                </span>
-                                                {roomState?.teamMode === 'two-teams' && (
-                                                    <span
-                                                        className={`ml-2 text-[10px] rounded px-1.5 py-0.5 ${getTeamBadgeClass(teamMode, player.teamId)}`}
-                                                    >
-                                                        {player.teamId ?? '-'}
-                                                    </span>
-                                                )}
-                                                {player.playerId === playerId && (
-                                                    <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-1 rounded">
-                                                        YOU
-                                                    </span>
-                                                )}
-                                            </span>
-                                            <span className="text-muted-foreground">
-                                                {player.isCompleted ? '完了' : '進行中'}
-                                            </span>
-                                        </div>
-                                        <div className="h-2 rounded bg-muted overflow-hidden">
-                                            <div
-                                                className="h-full bg-foreground/80 transition-all duration-200"
-                                                style={{
-                                                    width: `${Math.min((player.currentCharIndex / progressMax) * 100, 100)}%`,
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            文字数: {player.currentCharIndex} / 正解率: {player.correctRate.toFixed(1)}%
+                        <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
+                            <div className="surface-muted p-4">
+                                {/* ゲーム開始までのカウントダウン表示 */}
+                                {countdownSecondsLeft && countdownSecondsLeft > 0 ? (
+                                    <div className="h-full flex items-center justify-center">
+                                        <div className="text-center">
+                                            <div className="text-9xl font-bold text-white drop-shadow-lg animate-pulse">
+                                                {countdownSecondsLeft}
+                                            </div>
+                                            <div className="text-white text-xl mt-4">ゲーム開始まで</div>
                                         </div>
                                     </div>
-                                ))}
+                                ) : (
+                                    <TypingDisplay
+                                        key={`${question.id}-${completedQuestionCount}`}
+                                        japanese={question.japanese}
+                                        romaji={question.romaji}
+                                        alternatives={question.alternatives}
+                                        accentColor="blue"
+                                        onProgress={handleProgress}
+                                        onError={handleError}
+                                        onComplete={handleComplete}
+                                    />
+                                )}
+                            </div>
+
+                            <div className="surface-card p-3.5 space-y-2.5 flex flex-col">
+                                <div className="text-sm text-muted-foreground">リアルタイム進捗 ({ranking.length})</div>
+                                <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1">
+                                    {ranking.map((player, idx) => (
+                                        <div
+                                            key={player.playerId}
+                                            className={`rounded border border-border p-3 space-y-1 flex-shrink-0 ${
+                                                player.playerId === playerId ? 'bg-blue-500/10 border-blue-500/40' : ''
+                                            }`}
+                                        >
+                                            <div className="flex justify-between text-sm">
+                                                <span className="flex items-center">
+                                                    <span
+                                                        className={`mr-2 font-semibold ${
+                                                            idx === 0
+                                                                ? 'text-yellow-600'
+                                                                : idx === 1
+                                                                  ? 'text-gray-400'
+                                                                  : idx === 2
+                                                                    ? 'text-amber-600'
+                                                                    : 'text-gray-500'
+                                                        }`}
+                                                    >
+                                                        {idx + 1}.
+                                                    </span>
+                                                    <span className={getTeamNameClass(teamMode, player.teamId)}>
+                                                        {player.name}
+                                                    </span>
+                                                    {roomState?.teamMode === 'two-teams' && (
+                                                        <span
+                                                            className={`ml-2 text-[10px] rounded px-1.5 py-0.5 ${getTeamBadgeClass(teamMode, player.teamId)}`}
+                                                        >
+                                                            {player.teamId ?? '-'}
+                                                        </span>
+                                                    )}
+                                                    {player.playerId === playerId && (
+                                                        <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-1 rounded">
+                                                            YOU
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                <span className="text-muted-foreground">
+                                                    {player.isCompleted ? '完了' : '進行中'}
+                                                </span>
+                                            </div>
+                                            <div className="h-2 rounded bg-muted overflow-hidden">
+                                                <div
+                                                    className="h-full bg-foreground/80 transition-all duration-200"
+                                                    style={{
+                                                        width: `${Math.min((player.currentCharIndex / progressMax) * 100, 100)}%`,
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                文字数: {player.currentCharIndex} / 正解率:{' '}
+                                                {player.correctRate.toFixed(1)}%
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <div className="flex-shrink-0 p-2 md:p-3 border-t border-border/70 sticky bottom-0 bg-background/95 backdrop-blur-sm z-10">
+                    <div className="max-w-3xl mx-auto">
+                        <div className="grid grid-cols-3 gap-3 text-center">
+                            <div className="space-y-1">
+                                <div className="text-xs md:text-sm text-muted-foreground">正タイプ数</div>
+                                <div className="text-lg md:text-xl font-bold text-foreground">{totalInputCount}</div>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-xs md:text-sm text-muted-foreground">誤タイプ数</div>
+                                <div className="text-lg md:text-xl font-bold text-red-500">{errorCount}</div>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-xs md:text-sm text-muted-foreground">正解率</div>
+                                <div className="text-lg md:text-xl font-bold text-blue-500">
+                                    {totalInputCount + errorCount > 0
+                                        ? ((totalInputCount / (totalInputCount + errorCount)) * 100).toFixed(1)
+                                        : 0}
+                                    %
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {isChatOpen ? (
+                    <div className="absolute inset-0 z-20" onClick={() => setIsChatOpen(false)} aria-hidden="true">
+                        <div
+                            className="absolute left-3 bottom-3 w-[min(68vw,15rem)] md:left-4 md:bottom-4 md:w-[16rem] lg:w-[17rem]"
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            <div className="surface-card overflow-hidden shadow-lg">
+                                <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
+                                    <div className="text-sm font-medium">ロビーのチャット</div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="text-xs text-muted-foreground">
+                                            {roomState?.chatMessages.length ?? 0}件
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-7 w-7 p-0"
+                                            onClick={() => setIsChatOpen(false)}
+                                            aria-label="チャットを閉じる"
+                                        >
+                                            <X className="size-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div
+                                    ref={chatScrollRef}
+                                    className="max-h-44 space-y-1 overflow-y-auto px-3 py-2 scrollbar-hide"
+                                >
+                                    {(roomState?.chatMessages.length ?? 0) === 0 ? (
+                                        <div className="text-xs text-muted-foreground">
+                                            まだメッセージはありません。
+                                        </div>
+                                    ) : (
+                                        roomState?.chatMessages.map((message) => (
+                                            <div key={message.id} className="text-sm leading-relaxed break-words">
+                                                <span className="font-semibold text-foreground">
+                                                    {message.playerName}
+                                                </span>
+                                                <span className="text-muted-foreground">: {message.content}</span>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                <div className="border-t border-border/60 p-2">
+                                    <form
+                                        className="flex items-center gap-2"
+                                        onSubmit={(event) => {
+                                            event.preventDefault();
+                                            sendLobbyChat();
+                                        }}
+                                    >
+                                        <input
+                                            value={chatInput}
+                                            onChange={(event) => setChatInput(event.target.value)}
+                                            onFocus={() => setIsChatInputFocused(true)}
+                                            onBlur={() => setIsChatInputFocused(false)}
+                                            placeholder="メッセージを入力"
+                                            className="surface-input min-w-0 flex-1 px-3 py-2 text-sm"
+                                            maxLength={120}
+                                        />
+                                        <Button
+                                            type="submit"
+                                            size="sm"
+                                            className={`h-9 shrink-0 px-0 ${isChatInputFocused ? 'w-16' : 'w-9'}`}
+                                            aria-label="メッセージを送信"
+                                        >
+                                            {isChatInputFocused ? (
+                                                <span className="text-xs font-medium">送信</span>
+                                            ) : (
+                                                <Send className="size-4" />
+                                            )}
+                                        </Button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <Button
+                        type="button"
+                        onClick={() => {
+                            setIsChatOpen(true);
+                            const latestChatMessage = roomState?.chatMessages[roomState.chatMessages.length - 1];
+                            if (latestChatMessage) {
+                                setLastReadChatMessageId(latestChatMessage.id);
+                            }
+                        }}
+                        className="absolute left-3 bottom-3 z-20 h-11 w-11 rounded-full px-0 md:left-4 md:bottom-4"
+                        aria-label="チャットを開く"
+                    >
+                        <MessageSquare className="size-5" />
+                    </Button>
+                )}
             </div>
         );
     }
@@ -1640,30 +1712,17 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             <div>KPM: {myResult.kpm.toFixed(1)}</div>
                             <div>
                                 難易度別順位:{' '}
-                                {typeof myResult.dbRank === 'number' && myResult.dbRank > 0
-                                    ? `${myResult.dbRank}位`
-                                    : '計算中'}
+                                {isLoadingLeaderboard ? (
+                                    <span className="animate-pulse">計算中...</span>
+                                ) : typeof myResult.dbRank === 'number' && myResult.dbRank > 0 ? (
+                                    `${myResult.dbRank}位`
+                                ) : (
+                                    '計算中'
+                                )}
                             </div>
                         </div>
                     </div>
                 )}
-
-                <div className="surface-muted p-3 space-y-2">
-                    <div className="text-xs text-muted-foreground">ユーザー名（ルーム参加中でも変更可能）</div>
-                    <div className="flex gap-2">
-                        <input
-                            value={playerName}
-                            onChange={(event) => setPlayerName(event.target.value)}
-                            className="surface-input w-full px-3 py-2"
-                            placeholder="名前を入力"
-                            maxLength={16}
-                        />
-                        <Button type="button" variant="outline" onClick={updatePlayerNameInRoom}>
-                            反映
-                        </Button>
-                    </div>
-                </div>
-
                 <ActionButtonRow cols={2}>
                     <ActionButton
                         onClick={onBackToHome}

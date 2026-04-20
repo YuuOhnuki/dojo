@@ -53,6 +53,7 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
     const [isSavingPlayerName, setIsSavingPlayerName] = useState(false);
     const [isPlayerNameSaved, setIsPlayerNameSaved] = useState(false);
     const [savePlayerNameError, setSavePlayerNameError] = useState('');
+    const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
     const [levelInfo, setLevelInfo] = useState<{
         previousLevel: number;
         currentLevel: number;
@@ -312,6 +313,7 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
         async (result: GameResult, playerName: string) => {
             try {
                 setIsSavingPlayerName(true);
+                setIsLoadingLeaderboard(true);
                 setSavePlayerNameError('');
 
                 // ログイン状態の場合は userId を playerId として使用
@@ -367,6 +369,7 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
                 setSavePlayerNameError('保存に失敗しました。時間をおいて再試行してください。');
             } finally {
                 setIsSavingPlayerName(false);
+                setIsLoadingLeaderboard(false);
             }
         },
         [currentSession, session?.user?.id],
@@ -618,6 +621,7 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
                 isSavingName={isSavingPlayerName}
                 isSavedName={isPlayerNameSaved}
                 saveErrorMessage={savePlayerNameError}
+                isLoadingLeaderboard={isLoadingLeaderboard}
                 levelInfo={levelInfo}
                 onSavePlayerName={handleSavePlayerName}
                 onRestart={handleRestart}
@@ -800,7 +804,7 @@ export const SinglePlayScreen: React.FC<{ onBackToHome?: () => void; onBackToDif
 
             <div className="flex-shrink-0 p-2 md:p-3 border-t border-border/70 sticky bottom-0 bg-background/95 backdrop-blur-sm z-10">
                 <div className="max-w-3xl mx-auto">
-                    <div className={`grid ${isSurvivalMode ? 'grid-cols-5' : 'grid-cols-4'} gap-3 text-center`}>
+                    <div className={`grid ${isSurvivalMode ? 'grid-cols-3' : 'grid-cols-3'} gap-3 text-center`}>
                         <div className="space-y-1">
                             <div className="text-xs md:text-sm text-muted-foreground">正タイプ数</div>
                             <div className="text-lg md:text-xl font-bold text-foreground">{totalInputCount}</div>

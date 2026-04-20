@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { ChevronLeft, LogOut } from 'lucide-react';
+import { ActionButton } from './ui/action-button';
 
 interface UserSettingsProps {
     onCancel?: () => void;
@@ -132,12 +133,9 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ onCancel }) => {
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-bold">ユーザー設定</h1>
                 {onCancel && (
-                    <button
-                        onClick={onCancel}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors dark:hover:bg-gray-800"
-                    >
-                        <ChevronLeft className="w-5 h-5" />
-                    </button>
+                    <ActionButton onClick={onCancel} variant="outline" icon={ChevronLeft} className="w-auto" size="sm">
+                        戻る
+                    </ActionButton>
                 )}
             </div>
 

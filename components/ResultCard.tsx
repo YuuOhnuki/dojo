@@ -6,6 +6,7 @@ import { Home, RotateCcw, Save } from 'lucide-react';
 import { DifficultyLeaderboardEntry, GameResult } from '@/types/typing';
 import { ActionButton, ActionButtonRow } from '@/components/ui/action-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useSession } from 'next-auth/react';
 
 interface ResultCardProps {
     result: GameResult;
@@ -14,6 +15,7 @@ interface ResultCardProps {
     isSavingName?: boolean;
     isSavedName?: boolean;
     saveErrorMessage?: string;
+    isLoadingLeaderboard?: boolean;
     levelInfo?: {
         previousLevel: number;
         currentLevel: number;
@@ -31,6 +33,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({
     isSavingName = false,
     isSavedName = false,
     saveErrorMessage,
+    isLoadingLeaderboard = false,
     levelInfo = null,
     onSavePlayerName,
     onRestart,
@@ -38,6 +41,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({
 }) => {
     const [playerName, setPlayerName] = React.useState(result.playerName || 'Player');
     const displayedLeaderboard = leaderboard.slice(0, 5);
+    const { data: session } = useSession();
 
     React.useEffect(() => {
         setPlayerName(result.playerName || 'Player');
@@ -93,27 +97,29 @@ export const ResultCard: React.FC<ResultCardProps> = ({
                         </CardHeader>
 
                         <CardContent className="space-y-4 pt-4">
-                            <div className="space-y-2 rounded border border-border/70 p-3">
-                                <div className="text-sm text-muted-foreground">ユーザー名</div>
-                                <div className="flex flex-col gap-2 md:flex-row">
-                                    <input
-                                        value={playerName}
-                                        onChange={(e) => setPlayerName(e.target.value)}
-                                        maxLength={24}
-                                        className="surface-input w-full px-3 py-2"
-                                        placeholder="ユーザー名を入力"
-                                    />
-                                    <ActionButton
-                                        onClick={handleSave}
-                                        icon={Save}
-                                        className="w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90"
-                                        disabled={isSavingName || isSavedName}
-                                    >
-                                        {isSavingName ? '保存中...' : isSavedName ? '保存済み' : 'この名前で保存'}
-                                    </ActionButton>
+                            {session?.user && session.user.username && (
+                                <div className="space-y-2 rounded border border-border/70 p-3">
+                                    <div className="text-sm text-muted-foreground">ユーザー名</div>
+                                    <div className="flex flex-col gap-2 md:flex-row">
+                                        <input
+                                            value={playerName}
+                                            onChange={(e) => setPlayerName(e.target.value)}
+                                            maxLength={24}
+                                            className="surface-input w-full px-3 py-2"
+                                            placeholder="ユーザー名を入力"
+                                        />
+                                        <ActionButton
+                                            onClick={handleSave}
+                                            icon={Save}
+                                            className="w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90"
+                                            disabled={isSavingName || isSavedName}
+                                        >
+                                            {isSavingName ? '保存中...' : isSavedName ? '保存済み' : 'この名前で保存'}
+                                        </ActionButton>
+                                    </div>
+                                    {saveErrorMessage && <div className="text-xs text-red-600">{saveErrorMessage}</div>}
                                 </div>
-                                {saveErrorMessage && <div className="text-xs text-red-600">{saveErrorMessage}</div>}
-                            </div>
+                            )}
 
                             {/* レベルアップ通知 */}
                             {levelInfo?.leveledUp && (
@@ -227,29 +233,40 @@ export const ResultCard: React.FC<ResultCardProps> = ({
                                 </div>
                             </div>
 
-                            {displayedLeaderboard.length > 0 && (
+                            {isLoadingLeaderboard || displayedLeaderboard.length > 0 ? (
                                 <div className="space-y-3 border-t border-border/70 pt-4">
                                     <div className="text-sm text-muted-foreground">
                                         難易度別ランキング TOP {displayedLeaderboard.length}
                                     </div>
-                                    <div className="space-y-2 max-h-56 overflow-y-auto">
-                                        {displayedLeaderboard.map((entry) => (
-                                            <div
-                                                key={`${entry.rank}-${entry.playerName}-${entry.createdAt}`}
-                                                className="rounded border border-border/70 px-3 py-2 flex justify-between items-center"
-                                            >
-                                                <div className="text-sm text-foreground">
-                                                    {entry.rank}. {entry.playerName}
-                                                </div>
-                                                <div className="text-xs text-muted-foreground">
-                                                    正解タイプ数 {entry.correctCount} / KPM {formatNumber(entry.kpm, 1)}{' '}
-                                                    / 正解率 {formatNumber(entry.correctRate, 1)}%
+                                    {isLoadingLeaderboard ? (
+                                        <div className="space-y-2 max-h-56">
+                                            <div className="rounded border border-border/70 px-3 py-2 flex justify-between items-center">
+                                                <div className="text-sm text-foreground animate-pulse">
+                                                    ランキングを読み込み中...
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 max-h-56 overflow-y-auto">
+                                            {displayedLeaderboard.map((entry) => (
+                                                <div
+                                                    key={`${entry.rank}-${entry.playerName}-${entry.createdAt}`}
+                                                    className="rounded border border-border/70 px-3 py-2 flex justify-between items-center"
+                                                >
+                                                    <div className="text-sm text-foreground">
+                                                        {entry.rank}. {entry.playerName}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        正解タイプ数 {entry.correctCount} / KPM{' '}
+                                                        {formatNumber(entry.kpm, 1)} / 正解率{' '}
+                                                        {formatNumber(entry.correctRate, 1)}%
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                            )}
+                            ) : null}
 
                             {/* アクションボタン */}
                             <ActionButtonRow cols={2} className="border-t border-border/70 pt-4">

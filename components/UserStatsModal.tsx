@@ -79,9 +79,9 @@ export const UserStatsModal: React.FC<UserStatsModalProps> = ({
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-6 flex items-center justify-between">
+                <div className="sticky top-0  border-b border-gray-200 dark:border-gray-700 p-6 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        {avatar && <span className="text-3xl">{avatar}</span>}
+                        <span className="text-3xl">{avatar || '😊'}</span>
                         <div>
                             <h2 className="text-2xl font-bold">{playerName}</h2>
                             {userLevel !== undefined && (

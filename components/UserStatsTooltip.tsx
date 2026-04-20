@@ -84,19 +84,44 @@ export const UserStatsTooltip: React.FC<UserStatsTooltipProps> = ({
         if (triggerRef.current && tooltipRef.current) {
             const triggerRect = triggerRef.current.getBoundingClientRect();
             const tooltipRect = tooltipRef.current.getBoundingClientRect();
+            const gap = 8; // ギャップ
+            const padding = 8; // 画面端のパディング
 
-            let top = triggerRect.bottom + 8; // 8pxのギャップ
-            let left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
+            // 下に配置できるかチェック
+            const spaceBelow = window.innerHeight - triggerRect.bottom;
+            const canPlaceBelow = spaceBelow >= tooltipRect.height + gap;
+
+            // 上下の位置を決定
+            let top: number;
+            if (canPlaceBelow) {
+                top = triggerRect.bottom + gap;
+            } else {
+                top = triggerRect.top - tooltipRect.height - gap;
+            }
+
+            // 左位置を決定（トリガー要素の左側に合わせる）
+            let left = triggerRect.left;
 
             // 画面右側からはみ出さないよう調整
             const rightEdge = left + tooltipRect.width;
-            if (rightEdge > window.innerWidth) {
-                left = window.innerWidth - tooltipRect.width - 8;
+            if (rightEdge > window.innerWidth - padding) {
+                left = window.innerWidth - tooltipRect.width - padding;
             }
 
             // 画面左側からはみ出さないよう調整
-            if (left < 0) {
-                left = 8;
+            if (left < padding) {
+                left = padding;
+            }
+
+            // 上側へのはみ出しを防ぐ
+            if (top < padding) {
+                top = padding;
+            }
+
+            // 下側へのはみ出しを防ぐ
+            const bottomEdge = top + tooltipRect.height;
+            if (bottomEdge > window.innerHeight - padding) {
+                top = window.innerHeight - tooltipRect.height - padding;
             }
 
             setPosition({ top, left });

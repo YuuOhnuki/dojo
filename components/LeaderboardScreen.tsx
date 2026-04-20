@@ -3,8 +3,9 @@
 import React from 'react';
 import { BarChart3, ChevronLeft } from 'lucide-react';
 import { ActionButton } from '@/components/ui/action-button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Difficulty, DifficultyLeaderboardEntry } from '@/types/typing';
-import { UserStatsTooltip } from '@/components/UserStatsTooltip';
+import { UserStatsModal } from '@/components/UserStatsModal';
 
 interface LeaderboardScreenProps {
     onBackToHome?: () => void;
@@ -26,7 +27,12 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBackToHo
     const [sortBy, setSortBy] = React.useState<'correctCount' | 'kpm' | 'correctRate' | 'createdAt' | 'rank'>(
         'correctCount',
     );
-    const [expandedKey, setExpandedKey] = React.useState<string | null>(null);
+    const [selectedUserInfo, setSelectedUserInfo] = React.useState<{
+        userId: string;
+        playerName: string;
+        avatar?: string;
+        userLevel?: number;
+    } | null>(null);
     const sortedEntries = React.useMemo(() => {
         const filtered = entries.filter((entry) => modeFilter === 'all' || entry.mode === modeFilter);
         return [...filtered].sort((a, b) => {
@@ -99,7 +105,6 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBackToHo
                 if (!cancelled) {
                     const next = Array.isArray(payload.leaderboard) ? payload.leaderboard : [];
                     setEntries(next.sort((a, b) => a.rank - b.rank));
-                    setExpandedKey(null);
                 }
             } catch (error) {
                 if (!cancelled) {
@@ -198,21 +203,23 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBackToHo
 
                     <div className="space-y-1">
                         <div className="text-xs text-muted-foreground">並び替え項目</div>
-                        <select
+                        <Select
                             value={sortBy}
-                            onChange={(e) =>
-                                setSortBy(
-                                    e.target.value as 'correctCount' | 'kpm' | 'correctRate' | 'createdAt' | 'rank',
-                                )
+                            onValueChange={(value) =>
+                                setSortBy(value as 'correctCount' | 'kpm' | 'correctRate' | 'createdAt' | 'rank')
                             }
-                            className="surface-input w-full px-3 py-2"
                         >
-                            <option value="rank">サーバー順位</option>
-                            <option value="correctCount">正解タイプ数</option>
-                            <option value="correctRate">正解率</option>
-                            <option value="kpm">KPM</option>
-                            <option value="createdAt">日時</option>
-                        </select>
+                            <SelectTrigger className="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="rank">サーバー順位</SelectItem>
+                                <SelectItem value="correctCount">正解タイプ数</SelectItem>
+                                <SelectItem value="correctRate">正解率</SelectItem>
+                                <SelectItem value="kpm">KPM</SelectItem>
+                                <SelectItem value="createdAt">日時</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
 
@@ -226,10 +233,30 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBackToHo
                 {!isLoading && !errorMessage && sortedEntries.length > 0 && (
                     <div className="space-y-2">
                         {sortedEntries.map((entry, index) => {
-                            // ボタン内容を作成
-                            const buttonContent = (
-                                <button
-                                    type="button"
+                            // ログインユーザーの場合はプレイヤー名をクリック可能にする
+                            const playerNameElement =
+                                entry.userId && !entry.userId.startsWith('anon-') ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedUserInfo({
+                                                userId: entry.userId || '',
+                                                playerName: entry.playerName,
+                                                avatar: entry.avatar,
+                                                userLevel: entry.lv,
+                                            });
+                                        }}
+                                        className="font-medium cursor-pointer hover:text-primary hover:underline transition-colors"
+                                    >
+                                        {entry.playerName}
+                                    </button>
+                                ) : (
+                                    <span className="font-medium">{entry.playerName}</span>
+                                );
+
+                            return (
+                                <div
+                                    key={`${entry.rank}-${entry.playerName}-${entry.createdAt}`}
                                     className="w-full rounded border border-border px-3 py-2 text-left hover:bg-accent/50 transition-colors"
                                 >
                                     <div className="flex items-center justify-between">
@@ -248,7 +275,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBackToHo
                                                 {index + 1}
                                             </span>
                                             <span className="text-2xl">{entry.avatar || '😊'}</span>
-                                            <span className="font-medium">{entry.playerName}</span>
+                                            {playerNameElement}
                                             {entry.lv && (
                                                 <span className="text-xs font-semibold px-2 py-0.5 rounded bg-purple-500/15 text-purple-700 dark:text-purple-300">
                                                     Lv {entry.lv}
@@ -268,38 +295,23 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBackToHo
                                             {getSelectedMetricLabel(entry)}
                                         </div>
                                     </div>
-                                </button>
-                            );
-
-                            // ログインユーザーの場合はツールチップでラップ
-                            if (entry.userId && !entry.userId.startsWith('anon-')) {
-                                return (
-                                    <UserStatsTooltip
-                                        key={`${entry.rank}-${entry.playerName}-${entry.createdAt}`}
-                                        userId={entry.userId}
-                                        playerName={entry.playerName}
-                                        avatar={entry.avatar}
-                                        userLevel={entry.lv}
-                                    >
-                                        {buttonContent}
-                                    </UserStatsTooltip>
-                                );
-                            }
-
-                            // アノニマスユーザーはそのまま表示
-                            return (
-                                <div
-                                    key={`${entry.rank}-${entry.playerName}-${entry.createdAt}`}
-                                    className="cursor-default"
-                                >
-                                    {buttonContent}
                                 </div>
                             );
                         })}
                     </div>
                 )}
 
-                {/* 古い UserStatsModal の使用箇所を削除 */}
+                {/* ユーザー統計モーダル */}
+                {selectedUserInfo && (
+                    <UserStatsModal
+                        isOpen={!!selectedUserInfo}
+                        onClose={() => setSelectedUserInfo(null)}
+                        playerName={selectedUserInfo.playerName}
+                        avatar={selectedUserInfo.avatar}
+                        userLevel={selectedUserInfo.userLevel}
+                        userId={selectedUserInfo.userId}
+                    />
+                )}
             </div>
         </div>
     );

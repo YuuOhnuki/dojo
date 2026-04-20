@@ -175,10 +175,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                             >
                                 シングルプレイ
                             </ActionButton>
-                            <ActionButton onClick={onSelectMultiPlay} variant="secondary" icon={Users} size="lg">
+                            <ActionButton onClick={onSelectMultiPlay} variant="default" icon={Users} size="lg">
                                 マルチプレイ
                             </ActionButton>
-                            <ActionButton onClick={onSelectLeaderboard} variant="outline" icon={BarChart3} size="lg">
+                            <ActionButton onClick={onSelectLeaderboard} variant="secondary" icon={BarChart3} size="lg">
                                 リーダーボード
                             </ActionButton>
                         </ActionButtonRow>
@@ -187,21 +187,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         <ActionButtonRow>
                             {session?.user ? (
                                 <>
-                                    <ActionButton onClick={onSelectStats} variant="outline" icon={TrendingUp} size="lg">
+                                    <ActionButton onClick={onSelectStats} variant="ghost" icon={TrendingUp} size="lg">
                                         マイスタッツ
                                     </ActionButton>
-                                    <ActionButton
-                                        onClick={onSelectSettings}
-                                        variant="outline"
-                                        icon={Settings}
-                                        size="lg"
-                                    >
+                                    <ActionButton onClick={onSelectSettings} variant="ghost" icon={Settings} size="lg">
                                         設定
                                     </ActionButton>
                                 </>
                             ) : (
                                 <>
-                                    <ActionButton onClick={onSelectSignIn} variant="outline" icon={LogIn} size="lg">
+                                    <ActionButton onClick={onSelectSignIn} variant="ghost" icon={LogIn} size="lg">
                                         ログイン
                                     </ActionButton>
                                 </>

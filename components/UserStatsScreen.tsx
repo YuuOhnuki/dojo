@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { ChevronLeft } from 'lucide-react';
+import { calculateLevel, type LevelInfo } from '@/lib/level-calculator';
 
 interface UserStats {
     totalGames: number;
@@ -36,6 +38,7 @@ const difficultyLabels: { [key: string]: string } = {
 export const UserStatsScreen: React.FC<UserStatsScreenProps> = ({ onCancel }) => {
     const { data: session } = useSession();
     const [stats, setStats] = useState<UserStats | null>(null);
+    const [levelInfo, setLevelInfo] = useState<LevelInfo | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string>('');
 
@@ -51,6 +54,9 @@ export const UserStatsScreen: React.FC<UserStatsScreenProps> = ({ onCancel }) =>
                 const response = await fetch('/api/user/stats');
                 if (response.ok) {
                     const data: UserStats = await response.json();
+                    // レベル情報を計算
+                    const level = calculateLevel(data.totalGames, data.averageKpm, data.averageCorrectRate);
+                    setLevelInfo(level);
                     setStats(data);
                 } else {
                     setError('統計情報の取得に失敗しました');
@@ -106,6 +112,13 @@ export const UserStatsScreen: React.FC<UserStatsScreenProps> = ({ onCancel }) =>
                     <button
                         onClick={onCancel}
                         className="flex items-center gap-1 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors dark:hover:bg-gray-800"
+                    ></button>
+                )}
+
+                {onCancel && (
+                    <button
+                        onClick={onCancel}
+                        className="flex items-center gap-1 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors dark:hover:bg-gray-800"
                     >
                         <ChevronLeft className="w-5 h-5" />
                         <span>戻る</span>
@@ -115,7 +128,7 @@ export const UserStatsScreen: React.FC<UserStatsScreenProps> = ({ onCancel }) =>
 
             {/* 総合統計 */}
             <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-6">総合統計</h2>
+                <h2 className="text-2xl font-bold">総合統計</h2>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 p-4 rounded-lg">
@@ -145,7 +158,7 @@ export const UserStatsScreen: React.FC<UserStatsScreenProps> = ({ onCancel }) =>
                     </div>
                 </div>
 
-                <div className="mt-6 grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                     <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                         <div className="text-sm font-medium text-gray-600 dark:text-gray-400">正解数</div>
                         <div className="text-2xl font-bold">{stats.totalCorrectCount}</div>
@@ -156,13 +169,29 @@ export const UserStatsScreen: React.FC<UserStatsScreenProps> = ({ onCancel }) =>
                         <div className="text-2xl font-bold text-red-600">{stats.totalErrorCount}</div>
                     </div>
                 </div>
+
+                {levelInfo && (
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                            <div className="text-sm font-medium text-gray-600 dark:text-gray-400">レベル</div>
+                            <div className="text-2xl font-bold">Lv. {levelInfo.currentLevel}</div>
+                            <div className="flex justify-between items-center">
+                                {' '}
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                    {100 - levelInfo.experienceToNextLevel} / 100 EXP
+                                </span>
+                            </div>
+                            <Progress value={((100 - levelInfo.experienceToNextLevel) / 100) * 100} className="h-3" />
+                        </div>
+                    </div>
+                )}
             </Card>
 
             {/* 難易度別統計 */}
             <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-6">難易度別統計</h2>
+                <h2 className="text-2xl font-bold">難易度別統計</h2>
 
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {stats.difficultyStats.map((difficulty) => (
                         <div
                             key={difficulty.difficulty}
