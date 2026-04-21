@@ -1424,10 +1424,10 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                                 {countdownSecondsLeft && countdownSecondsLeft > 0 ? (
                                     <div className="h-full flex items-center justify-center">
                                         <div className="text-center">
-                                            <div className="text-9xl font-bold text-white drop-shadow-lg animate-pulse">
+                                            <div className="text-9xl font-bold text-white dark:text-black drop-shadow-lg animate-pulse">
                                                 {countdownSecondsLeft}
                                             </div>
-                                            <div className="text-white text-xl mt-4">ゲーム開始まで</div>
+                                            <div className="text-white dark:text-black text-xl mt-4">ゲーム開始まで</div>
                                         </div>
                                     </div>
                                 ) : (
