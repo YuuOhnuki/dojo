@@ -772,6 +772,7 @@ io.on('connection', (socket) => {
             finishTimer: null,
             chatMessages: [],
             players: new Map(),
+            lastProgressUpdateAt: 0,
         };
 
         room.players.set(playerId, {
@@ -1145,7 +1146,12 @@ io.on('connection', (socket) => {
         player.completedQuestionCount = Math.max(player.completedQuestionCount, nextCompletedQuestionCount);
         player.elapsedTime = room.startedAt ? Date.now() - room.startedAt : 0;
 
-        emitRoomState(normalizedCode);
+        // 更新頻度を制限（100ms 以上経過時のみ emit）
+        const now = Date.now();
+        if (now - room.lastProgressUpdateAt >= 100) {
+            room.lastProgressUpdateAt = now;
+            emitRoomState(normalizedCode);
+        }
     });
 
     socket.on('game:complete', async ({ roomCode, stats }) => {
@@ -1178,6 +1184,13 @@ io.on('connection', (socket) => {
         const room = rooms.get(roomCode);
         if (!room) return;
 
+        // ゲーム中（playing状態）の場合、プレイヤーを削除しない（接続復帰待機）
+        // ロビー中（waiting状態）のみ削除
+        if (room.status === 'playing') {
+            // ゲーム中の切断はプレイヤーを保持し、接続復帰を待つ
+            return;
+        }
+
         room.players.delete(socket.id);
 
         if (room.players.size === 0) {
@@ -1188,7 +1201,9 @@ io.on('connection', (socket) => {
 
         if (room.hostPlayerId === socket.id) {
             const nextHost = room.players.values().next().value;
-            room.hostPlayerId = nextHost.playerId;
+            if (nextHost) {
+                room.hostPlayerId = nextHost.playerId;
+            }
         }
 
         if (room.status === 'waiting') {

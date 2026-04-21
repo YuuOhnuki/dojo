@@ -231,7 +231,10 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
         });
 
         socket.on('game:countdown', (payload: GameCountdownPayload) => {
-            setCountdownTargetAt(payload.startsAt);
+            // サーバーのシステム時刻のずれを考慮し、クライアント側でカウントダウン時刻を再計算
+            const countdownStartedAt = Date.now();
+            const adjustedStartsAt = countdownStartedAt + (payload.seconds * 1000);
+            setCountdownTargetAt(adjustedStartsAt);
             setMode('playing');
         });
 
@@ -1442,7 +1445,7 @@ export const MultiPlayScreen: React.FC<{ onBackToHome?: () => void }> = ({ onBac
                             </div>
 
                             <div className="surface-card p-3.5 space-y-2.5 flex flex-col">
-                                <div className="text-sm text-muted-foreground">リアルタイム進捗 ({ranking.length})</div>
+                                <div className="text-sm text-muted-foreground">リアルタイム進捗</div>
                                 <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1">
                                     {ranking.map((player, idx) => (
                                         <div
